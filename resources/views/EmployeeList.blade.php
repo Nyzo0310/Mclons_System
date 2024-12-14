@@ -380,11 +380,12 @@
                             <label for="statutory_benefits" class="form-label">Statutory Benefits</label>
                             <select id="statutory_benefits" name="statutory_benefits" class="form-select" required>
                                 <option value="">Select Benefits</option>
-                                <option value="SSS">SSS</option>
-                                <option value="Pag-Ibig">Pag-Ibig</option>
-                                <option value="PhilHealth">PhilHealth</option>
+                                @foreach ($deduction as $statutory)
+                                    <option value="{{ $statutory->deduction_id }}">{{ $statutory->name }}</option>
+                                @endforeach
                             </select>
                         </div>
+                        
                         <div class="mb-3">
                             <label for="photo" class="form-label">ID Image</label>
                             <input type="file" class="form-control" id="photo" name="photo" accept="image/*">
@@ -452,12 +453,18 @@
                     <div class="mb-3">
                         <label for="edit_position_id" class="form-label">Position</label>
                         <select id="edit_position_id" name="position_id" class="form-select">
-                            <!-- Populate with positions -->
+                            <option value="">No Position</option>
+                                @foreach ($positions as $position)
+                                    <option value="{{ $position->position_id }}">{{ $position->position_name }}</option>
+                                @endforeach
                         </select>
                     </div>
                     <div class="mb-3">
                         <label for="edit_statutory_benefits" class="form-label">Statutory Benefits</label>
-                        <input type="text" class="form-control" id="edit_statutory_benefits" name="statutory_benefits">
+                        <option value="">Select Benefits</option>
+                        @foreach ($deduction as $statutory)
+                            <option value="{{ $statutory->deduction_id }}">{{ $statutory->name }}</option>
+                        @endforeach
                     </div>
                     <button type="submit" class="btn btn-success w-100">Save Changes</button>
                 </form>

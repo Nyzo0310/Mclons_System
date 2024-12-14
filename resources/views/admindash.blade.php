@@ -300,115 +300,126 @@
                 </div>
             </div>
         </div>
-
-    <!-- Main Content -->
-    <div class="main-content">
-        <h2>Dashboard</h2>
-        <!-- KPI Cards -->
-        <div class="row g-3 kpi-cards">
-    <div class="col-md-3">
-        <div class="card bg-blue">
-            <div class="card-content">
-                <h3 class="card-title">{{ $totalEmployees }}</h3>
-                <p class="card-text">Total Employees</p>
-            </div>
-            <i class="fas fa-users card-icon"></i>
-            <a href="{{ route('admin.addEmployeeList') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
+<!-- Main Content -->
+<div class="main-content">
+    <h2>Dashboard</h2>
+    <!-- KPI Cards -->
+    <div class="row g-3 kpi-cards">
+<div class="col-md-3">
+    <div class="card bg-blue">
+        <div class="card-content">
+            <h3 class="card-title">{{ $totalEmployees }}</h3>
+            <p class="card-text">Total Employees</p>
         </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-green">
-            <div class="card-content">
-                <h3 class="card-title">{{ number_format($onTimePercentage, 2) }}%</h3>
-                <p class="card-text">On Time Percentage</p>
-            </div>
-            <i class="fas fa-chart-pie card-icon"></i>
-            <a href="{{ route('admin.attendance') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-yellow">
-            <div class="card-content">
-                <h3 class="card-title">{{ $onTimeToday }}</h3>
-                <p class="card-text">On Time Today</p>
-            </div>
-            <i class="fas fa-clock card-icon"></i>
-            <a href="{{ route('admin.attendanceDash') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
-        </div>
-    </div>
-    <div class="col-md-3">
-        <div class="card bg-red">
-            <div class="card-content">
-                <h3 class="card-title">{{ $lateToday }}</h3>
-                <p class="card-text">Late Today</p>
-            </div>
-            <i class="fas fa-exclamation-triangle card-icon"></i>
-            <a href="{{ route('admin.attendanceDash') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
-        </div>
+        <i class="fas fa-users card-icon"></i>
+        <a href="{{ route('admin.addEmployeeList') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
     </div>
 </div>
-
-        <!-- Monthly Attendance Report -->
-        <div class="mt-5" style="height: calc(100vh - 200px);">
-            <h4>Monthly Attendance Report</h4>
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <div>
-                    <label for="yearSelector" class="form-label">Select Year:</label>
-                    <select id="yearSelector" class="form-select" style="width: 120px;">
-                        <option>2024</option>
-                        <option>2025</option>
-                    </select>
-                </div>
-            </div>
-            <!-- Full-Width Graph -->
-            <div style="width: 100%; height: 100%;">
-                <canvas id="attendanceChart"></canvas>
-            </div>
+<div class="col-md-3">
+    <div class="card bg-green">
+        <div class="card-content">
+            <h3 class="card-title">{{ number_format($onTimePercentage, 2) }}%</h3>
+            <p class="card-text">On Time Percentage</p>
         </div>
+        <i class="fas fa-chart-pie card-icon"></i>
+        <a href="{{ route('admin.attendance') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
+    </div>
+</div>
+<div class="col-md-3">
+    <div class="card bg-yellow">
+        <div class="card-content">
+            <h3 class="card-title">{{ $onTimeToday }}</h3>
+            <p class="card-text">On Time Today</p>
+        </div>
+        <i class="fas fa-clock card-icon"></i>
+        <a href="{{ route('admin.attendanceDash') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
+    </div>
+</div>
+<div class="col-md-3">
+    <div class="card bg-red">
+        <div class="card-content">
+            <h3 class="card-title">{{ $lateToday }}</h3>
+            <p class="card-text">Late Today</p>
+        </div>
+        <i class="fas fa-exclamation-triangle card-icon"></i>
+        <a href="{{ route('admin.attendanceDash') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
+    </div>
+</div>
+</div>
+<!-- Monthly Attendance Report -->
+<div class="mt-5" style="height: calc(100vh - 200px);">
+<h4>Monthly Attendance Report</h4>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <label for="viewSelector" class="form-label">View:</label>
+        <select id="viewSelector" class="form-select" style="width: 200px;">
+            <option value="current">Current Month</option>
+            <option value="year">Whole Year</option>
+        </select>
+    </div>
+</div>
+<!-- Full-Width Graph -->
+<div style="width: 120%; height: 100%;">
+    <canvas id="attendanceChart"></canvas>
+</div>
+</div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <!-- Chart.js library -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Attendance Chart Canvas -->
-<canvas id="attendanceChart"></canvas>
-
 <script>
-  const attendanceData = @json($attendanceCounts);
-console.log(attendanceData); // Add this line to check the data in the browser console
+const attendanceDataCurrentMonth = @json($attendanceCountsCurrentMonth);
+const attendanceDataYearly = @json($attendanceCountsYearly);
 
-// Labels for months
-const labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// Current month and year data initialization
+const currentMonth = new Date().getMonth();
+const currentYear = new Date().getFullYear();
+const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
 
-// Initialize data arrays for on-time and late counts
-const ontimeData = new Array(12).fill(0);
-const lateData = new Array(12).fill(0);
+const labelsCurrentMonth = [...Array(daysInMonth).keys()].map(i => i + 1); // Generate labels for each day of the current month
+const labelsYearly = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-// Populate the data arrays with monthly data
-attendanceData.forEach(data => {
-    const monthIndex = data.month - 1; // Convert month to zero-based index
-    ontimeData[monthIndex] = data.ontime || 0;
-    lateData[monthIndex] = data.late || 0;
+const ontimeDataMonth = new Array(daysInMonth).fill(0);
+const lateDataMonth = new Array(daysInMonth).fill(0);
+
+// Populate current month data
+attendanceDataCurrentMonth.forEach(data => {
+    ontimeDataMonth[data.day - 1] = data.ontime || 0;
+    lateDataMonth[data.day - 1] = data.late || 0;
 });
 
-// Create the chart
+const ontimeDataYear = new Array(12).fill(0);
+const lateDataYear = new Array(12).fill(0);
+
+// Populate yearly data
+attendanceDataYearly.forEach(data => {
+    const monthIndex = data.month - 1;
+    ontimeDataYear[monthIndex] = data.ontime || 0;
+    lateDataYear[monthIndex] = data.late || 0;
+});
+
+// Chart context
 const ctx = document.getElementById('attendanceChart').getContext('2d');
-const attendanceChart = new Chart(ctx, {
+
+// Create the chart
+let attendanceChart = new Chart(ctx, {
     type: 'bar',
     data: {
-        labels: labels,
+        labels: labelsCurrentMonth,
         datasets: [
             {
                 label: 'On-time',
-                data: ontimeData,
-                backgroundColor: 'rgba(40, 167, 69, 0.8)', // Green color for on-time
+                data: ontimeDataMonth,
+                backgroundColor: 'rgba(40, 167, 69, 0.8)',
             },
             {
                 label: 'Late',
-                data: lateData,
-                backgroundColor: 'rgba(108, 117, 125, 0.8)', // Gray color for late
+                data: lateDataMonth,
+                backgroundColor: 'rgba(108, 117, 125, 0.8)',
             },
         ],
     },
@@ -422,16 +433,37 @@ const attendanceChart = new Chart(ctx, {
         scales: {
             y: {
                 beginAtZero: true,
-                max: 300, // Set the maximum range of the y-axis (adjust as needed)
-                ticks: {
-                    stepSize: 50, // Adjust the step size between ticks
-                },
+                min: 0,
+                max: 300,
+                stepSize: 1,
+            },
+            x: {
+                type: 'category',
             },
         },
     },
 });
+
+// Handle view change
+document.getElementById('viewSelector').addEventListener('change', function () {
+    const view = this.value;
+
+    if (view === 'current') {
+        // Update chart for current month
+        attendanceChart.data.labels = labelsCurrentMonth;
+        attendanceChart.data.datasets[0].data = ontimeDataMonth;
+        attendanceChart.data.datasets[1].data = lateDataMonth;
+    } else if (view === 'year') {
+        // Update chart for whole year
+        attendanceChart.data.labels = labelsYearly;
+        attendanceChart.data.datasets[0].data = ontimeDataYear;
+        attendanceChart.data.datasets[1].data = lateDataYear;
+    }
+
+    attendanceChart.update();
+});
+
 </script>
 
-    
 </body>
 </html>

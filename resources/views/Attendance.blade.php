@@ -148,7 +148,7 @@
         }
     </style>
 </head>
-<body>
+<<body>
     <!-- Back Button -->
     <a href="{{ route('admin.attendanceDash') }}" class="back-button fade-in">
         <i class="fas fa-arrow-left"></i> Back to Attendance Dashboard
@@ -161,18 +161,23 @@
             @csrf
             <div>
                 <label for="employee_id" class="form-label">Employee ID</label>
-                <input type="text" id="employee_id" name="employee_id" placeholder="Enter Employee ID" required>
+                <input type="text" id="employee_id" name="employee_id" placeholder="Enter Employee ID" value="{{ old('employee_id') }}" required>
+                @error('employee_id')
+                    <div class="text-danger">{{ $message }}</div>
+                @enderror
             </div>
             <div>
                 <label for="attendancestatus" class="form-label">Attendance</label>
                 <select id="attendancestatus" name="attendancestatus" required>
                     <option value="">--Select--</option>
-                    <option value="timein">Time In</option>
-                    <option value="timeout">Time Out</option>
+                    <option value="timein" {{ old('attendancestatus') == 'timein' ? 'selected' : '' }}>Time In</option>
+                    <option value="timeout" {{ old('attendancestatus') == 'timeout' ? 'selected' : '' }}>Time Out</option>
                 </select>
+                @error('attendancestatus')
+                    <div class="text-danger">{{ $message }}</div>
+                @enderror
             </div>
-            <input type="hidden" name="date" value="{{ date('Y-m-d') }}">
-            <input type="hidden" name="check_in_time" value="{{ now()->toTimeString() }}">
+            <input type="hidden" name="check_in_time" value="{{ now()->toDateTimeString() }}">
             <input type="submit" value="Submit">
         </form>
     </div>
@@ -193,31 +198,32 @@
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-<script>
-    // Display SweetAlert2 on success
-    @if (session('success'))
-        Swal.fire({
-            icon: 'success',
-            title: 'Success!',
-            text: "{{ session('success') }}",
-            timer: 3000,
-            timerProgressBar: true,
-            showConfirmButton: false,
-        });
-    @endif
+    <script>
+        // Display SweetAlert2 on success
+        @if (session('success'))
+            Swal.fire({
+                icon: 'success',
+                title: 'Success!',
+                text: "{{ session('success') }}",
+                timer: 3000,
+                timerProgressBar: true,
+                showConfirmButton: false,
+            });
+        @endif
 
-    // Display SweetAlert2 on error
-    @if (session('error'))
-        Swal.fire({
-            icon: 'error',
-            title: 'Oops!',
-            text: "{{ session('error') }}",
-            timer: 3000,
-            timerProgressBar: true,
-            showConfirmButton: false,
-        });
-    @endif
-</script>
+        // Display SweetAlert2 on error
+        @if (session('error'))
+            Swal.fire({
+                icon: 'error',
+                title: 'Oops!',
+                text: "{{ session('error') }}",
+                timer: 3000,
+                timerProgressBar: true,
+                showConfirmButton: false,
+            });
+        @endif
+    </script>
 
 </body>
+
 </html>

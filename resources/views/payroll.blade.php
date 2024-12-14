@@ -254,7 +254,8 @@
         </div>
     </div>
 
-    <div class="main-content">
+   <!-- Main Content -->
+   <div class="main-content">
     <div class="page-title">Payroll</div>
     <div class="controls">
         <div class="date-picker">
@@ -263,7 +264,8 @@
         </div>
         <div>
             <button class="btn btn-success"><i class="fas fa-file-alt"></i> Payroll</button>
-            <button class="btn btn-primary"><i class="fas fa-file-invoice"></i> Payslip</button>
+            <!-- Payslip Button Triggering Modal -->
+            <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#payslipModal"><i class="fas fa-file-invoice"></i> Payslip</button>
         </div>
     </div>
     <div class="table-wrapper">
@@ -277,6 +279,7 @@
                     <th>Cash Advance</th>
                     <th>Netpay</th>
                     <th>Status</th>
+                    <th>Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -295,6 +298,16 @@
                         <td>{{ number_format($employee->approved_cash_advance ?? 0, 2) }}</td>
                         <td>{{ number_format($employee->payroll->net_salary, 2) }}</td>
                         <td class="status active">Active</td>
+                        <!-- Add Button to Trigger Modal with Selected Payslip Data -->
+                        <td><button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#payslipModal" 
+                            data-name="{{ $employee->first_name }} {{ $employee->last_name }}" 
+                            data-id="{{ $employee->employee_id }}" 
+                            data-gross="{{ number_format($employee->payroll->gross_salary, 2) }}" 
+                            data-deductions="{{ $employee->deduction_name ?? 'No deductions' }}" 
+                            data-advance="{{ number_format($employee->approved_cash_advance ?? 0, 2) }}" 
+                            data-netpay="{{ number_format($employee->payroll->net_salary, 2) }}">
+                            View Payslip
+                        </button></td>
                     </tr>
                 @endforeach
             </tbody>
@@ -302,7 +315,84 @@
     </div>
 </div>
 
-    <!-- JavaScript -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+ <!-- Payslip Modal -->
+ <div class="modal fade" id="payslipModal" tabindex="-1" aria-labelledby="payslipModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="payslipModalLabel">Payslip</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="payslipDetails">
+                    <!-- Payslip Content Will Go Here -->
+                    <p><strong>Employee Name:</strong> <span id="payslipName"></span></p>
+                    <p><strong>Employee ID:</strong> <span id="payslipID"></span></p>
+                    <p><strong>Gross Salary:</strong> <span id="payslipGross"></span></p>
+                    <p><strong>Deductions:</strong> <span id="payslipDeductions"></span></p>
+                    <p><strong>Cash Advance:</strong> <span id="payslipAdvance"></span></p>
+                    <p><strong>Net Pay:</strong> <span id="payslipNetPay"></span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="downloadPayslip">Download as Image</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-success" id="printPayslip">Print</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Handle modal data population when View Payslip button is clicked
+    const payslipModal = document.getElementById('payslipModal');
+    payslipModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const name = button.getAttribute('data-name');
+        const id = button.getAttribute('data-id');
+        const gross = button.getAttribute('data-gross');
+        const deductions = button.getAttribute('data-deductions');
+        const advance = button.getAttribute('data-advance');
+        const netpay = button.getAttribute('data-netpay');
+
+        // Set the modal content
+        document.getElementById('payslipName').textContent = name;
+        document.getElementById('payslipID').textContent = id;
+        document.getElementById('payslipGross').textContent = gross;
+        document.getElementById('payslipDeductions').textContent = deductions;
+        document.getElementById('payslipAdvance').textContent = advance;
+        document.getElementById('payslipNetPay').textContent = netpay;
+    });
+
+    // Function to handle printing the payslip
+    document.getElementById('printPayslip').addEventListener('click', function() {
+        const printContent = document.getElementById('payslipDetails').innerHTML;
+        const newWindow = window.open('', '', 'width=800, height=600');
+        newWindow.document.write('<html><head><title>Print Payslip</title></head><body>' + printContent + '</body></html>');
+        newWindow.document.close();
+        newWindow.print();
+    });
+
+    // Function to handle downloading the payslip as an image
+    document.getElementById('downloadPayslip').addEventListener('click', function() {
+        const payslipDetails = document.getElementById('payslipDetails');
+        
+        // Use html2canvas to capture the payslip content
+        html2canvas(payslipDetails).then(function(canvas) {
+            // Create an image URL from the canvas
+            const imgURL = canvas.toDataURL('image/png');
+
+            // Create a link to download the image
+            const link = document.createElement('a');
+            link.href = imgURL;
+            link.download = 'payslip.png'; // Set the filename
+            link.click();
+        });
+    });
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/0.4.1/html2canvas.min.js"></script>
+
 </body>
 </html>

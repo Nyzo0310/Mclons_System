@@ -364,7 +364,7 @@
                     </div>
                     <div class="mb-3">
                         <label for="rate_per_hour" class="form-label">Rate Per Hour</label>
-                        <input type="number" class="form-control" id="rate_per_hour" name="rate_per_hour" required>
+                        <input type="number" class="form-control" id="rate_per_hour" name="rate_per_hour" step="0.01" min="0" max="99.99" required>
                     </div>
                     <button type="submit" class="btn btn-primary">Add Position</button>
                 </form>
@@ -391,7 +391,7 @@
                         </div>
                         <div class="mb-3">
                             <label for="edit_rate_per_hour" class="form-label">Rate Per Hour</label>
-                            <input type="number" class="form-control" id="edit_rate_per_hour" required>
+                            <input type="number" class="form-control" id="edit_rate_per_hour" step="0.01" min="0" max="99.99" required>
                         </div>
                         <button type="submit" class="btn btn-primary w-100">Save</button>
                     </form>

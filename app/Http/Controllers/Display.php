@@ -36,19 +36,19 @@ class Display extends Controller
                 $query->where('status', 'approved'); // Only sum approved cash advances
             }], 'amount')
             ->get();
-        
+    
         // Loop through each employee and calculate payroll
         foreach ($employees as $employee) {
-            // Call the calculatePayroll function for each employee and get the payroll object
+            // Check if payroll already exists for the current month (or chosen period)
             $payroll = $this->calculatePayroll($employee->employee_id);
-            
+    
             // Attach payroll data to employee
             $employee->payroll = $payroll;
             
             // Attach the total approved cash advance to the employee
             $employee->approved_cash_advance = $employee->cash_advances_sum_amount;
             
-            // Optionally, you can also include deduction name or amount if necessary:
+            // Optionally, include deduction name or amount if necessary:
             $employee->deduction_name = $payroll->deduction_id ? Deduction::find($payroll->deduction_id)->name : null;
             $employee->total_deductions = $payroll->deduction_id ? Deduction::find($payroll->deduction_id)->amount : 0;
         }
@@ -58,8 +58,6 @@ class Display extends Controller
     }
     
     
-    
-
     public function Display7()
     {
         $overtimes = Overtime::all();
@@ -81,7 +79,7 @@ class Display extends Controller
     {
         // Total Employees
         $totalEmployees = Employee::count();
-    
+        
         // On-time Percentage (Total On-time / Total Records * 100)
         $totalAttendance = Attendance::count();
         $onTimeAttendance = Attendance::whereRaw('
@@ -92,7 +90,7 @@ class Display extends Controller
     
         // On Time Today
         $today = now()->toDateString();
-        $onTimeToday = Attendance::whereDate('date', $today)
+        $onTimeToday = Attendance::whereDate('check_in_time', $today)
             ->whereRaw('
                 (TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
                 (TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("18:10:00") AND HOUR(check_in_time) >= 12)
@@ -100,30 +98,55 @@ class Display extends Controller
             ->count();
     
         // Late Today (including the night time)
-        $lateToday = Attendance::whereDate('date', $today)
+        $lateToday = Attendance::whereDate('check_in_time', $today)
             ->whereRaw('
                 (TIME_TO_SEC(check_in_time) > TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
                 (TIME_TO_SEC(check_in_time) > TIME_TO_SEC("18:10:00"))
             ')
             ->count();
     
-        // Monthly Attendance Counts
-        $attendanceCounts = DB::table('attendances')
+        // Monthly Attendance Counts (for current month view)
+        $attendanceCountsCurrentMonth = DB::table('attendances')
             ->selectRaw('
-                MONTH(date) as month,
+                YEAR(check_in_time) as year,
+                MONTH(check_in_time) as month,
+                DAY(check_in_time) as day,
                 SUM((TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
                     (TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("18:10:00") AND HOUR(check_in_time) >= 12)) as ontime,
                 SUM((TIME_TO_SEC(check_in_time) > TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
-                    (TIME_TO_SEC(check_in_time) > TIME_TO_SEC("18:10:00")) ) as late
+                    (TIME_TO_SEC(check_in_time) > TIME_TO_SEC("18:10:00"))) as late
             ')
-            ->groupByRaw('MONTH(date)')
-            ->orderByRaw('MONTH(date)')
+            ->whereYear('check_in_time', now()->year)  // Filter by current year
+            ->whereMonth('check_in_time', now()->month) // Filter by current month
+            ->groupByRaw('YEAR(check_in_time), MONTH(check_in_time), DAY(check_in_time)')
+            ->get();
+    
+        // Yearly Attendance Counts (for whole year view)
+        $attendanceCountsYearly = DB::table('attendances')
+            ->selectRaw('
+                YEAR(check_in_time) as year,
+                MONTH(check_in_time) as month,
+                SUM((TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
+                    (TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("18:10:00") AND HOUR(check_in_time) >= 12)) as ontime,
+                SUM((TIME_TO_SEC(check_in_time) > TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
+                    (TIME_TO_SEC(check_in_time) > TIME_TO_SEC("18:10:00"))) as late
+            ')
+            ->whereYear('check_in_time', now()->year)  // Filter by current year
+            ->groupByRaw('YEAR(check_in_time), MONTH(check_in_time)') // Group by month for the entire year
+            ->orderByRaw('YEAR(check_in_time), MONTH(check_in_time)')
             ->get();
     
         // Return the view with the necessary data
-        return view('admindash', compact('totalEmployees', 'onTimePercentage', 'onTimeToday', 'lateToday', 'attendanceCounts'));
+        return view('admindash', compact(
+            'totalEmployees', 
+            'onTimePercentage', 
+            'onTimeToday', 
+            'lateToday', 
+            'attendanceCountsCurrentMonth', 
+            'attendanceCountsYearly'
+        ));
     }
-    
+       
     public function Display10()
     {
         // Fetching cash advances with employee details using Eloquent relationship
@@ -194,9 +217,10 @@ public function destroy($id)
 
     public function DisplayAddEmployeeList()
     {
+        $deduction = Deduction::all();
         $employees = Employee::all(); // Fetch all employees
         $positions = Position::all(); // Fetch all positions
-        return view('EmployeeList', compact('employees', 'positions'));
+        return view('EmployeeList', compact('employees', 'positions', 'deduction'));
     }
 
 
@@ -215,7 +239,7 @@ public function destroy($id)
     {
         $validated = $request->validate([
             'position_name' => 'required|string|max:255',
-            'rate_per_hour' => 'required|numeric',
+            'rate_per_hour' => 'required|numeric|regex:/^\d+(\.\d{1,2})?$/',
         ]);
 
         Position::create($validated);
@@ -267,7 +291,7 @@ public function destroy($id)
     {
         $validatedData = $request->validate([
             'Overtime_Type' => 'required|string|max:255',
-            'Rate_Per_Hour' => 'required|numeric|min:0'
+            'Rate_Per_Hour' => 'required|numeric|regex:/^\d+(\.\d{1,2})?$/',
         ]);
     
         try {
@@ -285,70 +309,75 @@ public function updateOvertime(Request $request, $id)
     try {
         $validatedData = $request->validate([
             'Overtime_Type' => 'required|string|max:255',
-            'Rate_Per_Hour' => 'required|numeric|min:0',
+            'Rate_Per_Hour' => 'required|numeric|regex:/^\d+(\.\d{1,2})?$/',
         ]);
 
         $overtime = Overtime::findOrFail($id); // Ensure it exists
         $overtime->update($validatedData); // Update the record
 
-        \Log::info("Overtime with ID {$id} updated successfully.");
+        Log::info("Overtime with ID {$id} updated successfully.");
         return response()->json(['success' => true, 'message' => 'Overtime updated successfully!']);
     } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-        \Log::error("Overtime with ID {$id} not found.");
+        Log::error("Overtime with ID {$id} not found.");
         return response()->json(['success' => false, 'message' => 'Overtime not found.'], 404);
     } catch (\Exception $e) {
-        \Log::error("Error updating overtime with ID {$id}: " . $e->getMessage());
+        Log::error("Error updating overtime with ID {$id}: " . $e->getMessage());
         return response()->json(['success' => false, 'message' => 'An unexpected error occurred.'], 500);
     }
 }
 
 public function deleteOvertime($id)
 {
-    \Log::info("Attempting to delete overtime with ID: {$id}");
+    Log::info("Attempting to delete overtime with ID: {$id}");
 
     try {
         $overtime = Overtime::findOrFail($id); // Correct primary key
-        \Log::info("Found overtime record: " . json_encode($overtime));
+        Log::info("Found overtime record: " . json_encode($overtime));
 
         $overtime->delete();
-        \Log::info("Overtime with ID {$id} deleted successfully.");
+        Log::info("Overtime with ID {$id} deleted successfully.");
 
         return response()->json(['success' => true, 'message' => 'Overtime deleted successfully!']);
     } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
-        \Log::error("Overtime with ID {$id} not found.");
+        Log::error("Overtime with ID {$id} not found.");
         return response()->json(['success' => false, 'message' => 'Overtime not found.'], 404);
     } catch (\Exception $e) {
-        \Log::error("Error deleting overtime with ID {$id}: " . $e->getMessage());
+        Log::error("Error deleting overtime with ID {$id}: " . $e->getMessage());
         return response()->json(['success' => false, 'message' => 'An unexpected error occurred.'], 500);
     }
 }
 
-    public function add(Request $request)
-    {
-        $validated = $request->validate([
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'address' => 'required|string|max:255',
-            'birthdate' => 'required|date',
-            'contact_no' => 'required|string|max:20',
-            'gender' => 'required|in:Male,Female',
-            'position_id' => 'nullable|exists:positions,position_id', // Make position_id optional
-            'statutory_benefits' => 'required|string|max:255',
-            'photo' => 'nullable|image|max:2048',
-        ]);
+public function add(Request $request)
+{
+    $validated = $request->validate([
+        'first_name' => 'required|string|max:255',
+        'last_name' => 'required|string|max:255',
+        'address' => 'required|string|max:255',
+        'birthdate' => 'required|date',
+        'contact_no' => 'required|string|max:20',
+        'gender' => 'required|in:Male,Female',
+        'position_id' => 'nullable|exists:positions,position_id', // Make position_id optional
+        'statutory_benefits' => 'required|string|max:255',
+        'photo' => 'nullable|image|max:2048',
+    ]);
 
-        $employee = new Employee($validated);
-
-        if ($request->hasFile('photo')) {
-            $path = $request->file('photo')->store('photos', 'public');
-            $employee->photo = $path;
-        }              
-
-        $employee->save();
-
-        return redirect()->route('admin.addEmployeeList')->with('success', 'Employee added successfully!');
+    // Fetch the deduction name based on the deduction_id
+    $deduction = Deduction::find($request->statutory_benefits);
+    if ($deduction) {
+        $validated['statutory_benefits'] = $deduction->name; // Replace ID with the deduction name
     }
 
+    $employee = new Employee($validated);
+
+    if ($request->hasFile('photo')) {
+        $path = $request->file('photo')->store('photos', 'public');
+        $employee->photo = $path;
+    }
+
+    $employee->save();
+
+    return redirect()->route('admin.addEmployeeList')->with('success', 'Employee added successfully!');
+}
 
     public function loginAuth(Request $request)
     {
@@ -374,13 +403,17 @@ public function deleteOvertime($id)
         $validated = $data->validate([
             'employee_id' => 'required|integer',
             'attendancestatus' => 'required',
-            'date' => 'required|date',
-            'check_in_time' => 'required',
+            'check_in_time' => 'required|date',
         ]);
     
         $employeeId = $validated['employee_id'];
-        $date = $validated['date'];
         $attendanceStatus = $validated['attendancestatus'];
+    
+        // Check if employee exists
+        $employee = Employee::find($employeeId);
+        if (!$employee) {
+            return back()->with('error', 'Employee not found!');
+        }
     
         // Adjusting the time based on the 15-minute rule
         $checkInTime = Carbon::parse($validated['check_in_time']);
@@ -396,8 +429,9 @@ public function deleteOvertime($id)
             $adjustedTime = $checkInTime;
         }
     
+        // Check for attendance based on employee_id and check_in_time
         $attendance = Attendance::where('employee_id', $employeeId)
-            ->where('date', $date)
+            ->whereDate('check_in_time', $adjustedTime->toDateString())
             ->first();
     
         if ($attendance) {
@@ -413,8 +447,7 @@ public function deleteOvertime($id)
             if ($attendanceStatus === 'timein') {
                 Attendance::create([
                     'employee_id' => $employeeId,
-                    'date' => $date,
-                    'check_in_time' => $adjustedTime->toTimeString(),
+                    'check_in_time' => $adjustedTime,
                     'check_out_time' => null,
                 ]);
                 return back()->with('success', 'Time In recorded successfully!');
@@ -423,7 +456,7 @@ public function deleteOvertime($id)
             }
         }
     }
-
+     
     public function deleteEmployee($id)
 {
     $employee = Employee::find($id);
@@ -486,7 +519,7 @@ public function deleteOvertime($id)
     {
         $validated = $request->validate([
             'position_name' => 'required|string|max:255',
-            'rate_per_hour' => 'required|numeric',
+            'rate_per_hour' => 'required|numeric|regex:/^\d+(\.\d{1,2})?$/',
         ]);
 
         $position = Position::where('position_id', $id)->first();
@@ -518,104 +551,127 @@ public function deleteOvertime($id)
         }
     }
 
-    public function calculatePayroll($employee_id)
-    {
-        // Retrieve employee and position details
-        $employee = Employee::find($employee_id);
-        
-        // Hourly rates
-        $regular_rate = 54.75; // Rate per regular hour
-        $overtime_rate = 68.44; // Rate per overtime hour
-        
-        // Retrieve the attendance for the employee
-        $attendances = Attendance::where('employee_id', $employee_id)->get();
-        
-        $total_regular_hours = 0;
-        $total_overtime_hours = 0;
-        
-        foreach ($attendances as $attendance) {
-            // Check if both check-in and check-out times are available
-            if ($attendance->check_in_time && $attendance->check_out_time) {
-                // Convert check-in and check-out times to Carbon instances for easier calculation
-                $check_in_time = Carbon::parse($attendance->check_in_time);
-                $check_out_time = Carbon::parse($attendance->check_out_time);
-        
-                // If check-out is on the next day, adjust the date
-                if ($check_out_time->lessThan($check_in_time)) {
-                    $check_out_time->addDay();
-                }
-        
-                // Calculate total hours worked for the day
-                $hours_worked = $check_in_time->diffInHours($check_out_time);
-        
-                // Calculate regular and overtime hours
-                if ($hours_worked > 8) {
-                    $regular_hours = 8; // Regular hours are capped at 8
-                    $overtime_hours = $hours_worked - 8; // Extra hours are overtime
-                } else {
-                    $regular_hours = $hours_worked; // All hours are regular if <= 8
-                    $overtime_hours = 0; // No overtime
-                }
-        
-                // Add to totals
-                $total_regular_hours += $regular_hours;
-                $total_overtime_hours += $overtime_hours;
+    public function calculatePayroll($employee_id, $payrollType = 'weekly')
+{
+    // Retrieve employee and position details
+    $employee = Employee::find($employee_id);
+    
+    // Hourly rates
+    $regular_rate = $employee->position->rate_per_hour;  // Based on employee's position
+    $overtime_rate = $regular_rate * 1.25; // Assuming overtime is 25% above regular rate
+    $extra_overtime_rate = $regular_rate * 0.10; // Extra overtime rate for hours between 2 AM and 4 AM
+    
+    // Retrieve the attendance for the employee
+    $attendances = Attendance::where('employee_id', $employee_id)->get();
+    
+    $total_regular_hours = 0;
+    $total_overtime_hours = 0;
+    $total_extra_overtime_hours = 0; // Track extra overtime hours
+    
+    foreach ($attendances as $attendance) {
+        // Check if both check-in and check-out times are available
+        if ($attendance->check_in_time && $attendance->check_out_time) {
+            // Convert check-in and check-out times to Carbon instances for easier calculation
+            $check_in_time = Carbon::parse($attendance->check_in_time);
+            $check_out_time = Carbon::parse($attendance->check_out_time);
+    
+            // If check-out is on the next day, adjust the date
+            if ($check_out_time->lessThan($check_in_time)) {
+                $check_out_time->addDay();
             }
-        }
-        
-        // Calculate total regular and overtime pay
-        $total_regular_pay = $total_regular_hours * $regular_rate;
-        $total_overtime_pay = $total_overtime_hours * $overtime_rate;
-        
-        // Calculate gross salary (before any deductions, just the total pay)
-        $gross_salary = $total_regular_pay + $total_overtime_pay;
-        $untouchgross = $gross_salary; // This is the untouchable gross salary
-        
-        // Now calculate the deductions, net salary etc., but not affecting untouchgross yet.
-        $cash_advance = CashAdvance::where('employee_id', $employee_id)
-                                   ->where('status', 'approved')
-                                   ->sum('amount');
-        
-        // Subtract the approved cash advance from gross salary
-        if ($cash_advance > 0) {
-            $gross_salary -= $cash_advance;
-        }
-        
-        // Retrieve statutory benefits for the employee
-        $statutory_benefits = explode(',', $employee->statutory_benefits);
-        
-        $deduction_id = null;
-        
-        // Check for existing payroll
-        $current_month = Carbon::now()->format('Y-m');
-        $existing_payroll = Payroll::where('employee_id', $employee_id)
-                                   ->whereRaw('DATE_FORMAT(created_at, "%Y-%m") = ?', [$current_month])
-                                   ->first();
-        
-        if (!$existing_payroll) {
-            foreach ($statutory_benefits as $benefit) {
-                $benefit = trim($benefit);
-                $deduction = Deduction::where('name', $benefit)->first();
-                
-                if ($deduction) {
-                    $deduction_id = $deduction->deduction_id;
-                    break;
+    
+            // Calculate total hours worked for the day
+            $hours_worked = $check_in_time->diffInHours($check_out_time);
+    
+            // Calculate regular and overtime hours
+            if ($hours_worked > 8) {
+                $regular_hours = 8; // Regular hours are capped at 8
+                $overtime_hours = $hours_worked - 8; // Extra hours are overtime
+            } else {
+                $regular_hours = $hours_worked; // All hours are regular if <= 8
+                $overtime_hours = 0; // No overtime
+            }
+    
+            // Calculate extra overtime hours (2 AM to 4 AM)
+            $extra_overtime_hours = 0;
+    
+            // Check if the time range overlaps the 2 AM - 4 AM period
+            if (($check_in_time->hour < 4 && $check_out_time->hour >= 2) || ($check_in_time->hour >= 2 && $check_in_time->hour < 4 && $check_out_time->hour > 2)) {
+                // Extra overtime hours will be the overlap between 2 AM to 4 AM
+                $start_extra_overtime = max($check_in_time->hour, 2); // Start of overtime (max of check-in and 2 AM)
+                $end_extra_overtime = min($check_out_time->hour, 4); // End of overtime (min of check-out and 4 AM)
+                $extra_overtime_hours = $end_extra_overtime - $start_extra_overtime; // Calculate the overlap
+    
+                // Ensure that we don't count negative hours (in case of no overlap)
+                if ($extra_overtime_hours < 0) {
+                    $extra_overtime_hours = 0;
                 }
             }
+    
+            // Add the calculated hours to totals
+            $total_regular_hours += $regular_hours;
+            $total_overtime_hours += $overtime_hours;
+            $total_extra_overtime_hours += $extra_overtime_hours;
         }
-        
-        // Calculate net salary after deductions
-        $total_deductions = $deduction_id ? Deduction::find($deduction_id)->amount : 0;
-        $net_salary = $gross_salary - $total_deductions;
-        
-        // Save payroll to the database
-        $payroll = new Payroll();
-        $payroll->employee_id = $employee_id;
-        $payroll->gross_salary = $untouchgross;  // Save the untouchable gross salary here
-        $payroll->deduction_id = $deduction_id;
-        $payroll->net_salary = $net_salary;
-        $payroll->save();
-        
-        return $payroll;
     }
-}    
+    
+    // Calculate total regular, overtime, and extra overtime pay
+    $total_regular_pay = $total_regular_hours * $regular_rate;
+    $total_overtime_pay = $total_overtime_hours * $overtime_rate;
+    $total_extra_overtime_pay = $total_extra_overtime_hours * $extra_overtime_rate;
+    
+    // Calculate gross salary (before any deductions)
+    $gross_salary = $total_regular_pay + $total_overtime_pay + $total_extra_overtime_pay;
+    $untouchgross = $gross_salary; // This is the untouchable gross salary
+    
+    // Now calculate the deductions, net salary, etc., but not affecting untouchgross yet.
+    $cash_advance = CashAdvance::where('employee_id', $employee_id)
+                               ->where('status', 'approved')
+                               ->sum('amount');
+    
+    // Subtract the approved cash advance from gross salary
+    if ($cash_advance > 0) {
+        $gross_salary -= $cash_advance;
+    }
+    
+    // Retrieve statutory benefits for the employee
+    $statutory_benefits = explode(',', $employee->statutory_benefits);
+    
+    $deduction_id = null;
+    
+    // Check for existing payroll
+    $current_month = Carbon::now()->format('Y-m');
+    $existing_payroll = Payroll::where('employee_id', $employee_id)
+                               ->whereRaw('DATE_FORMAT(created_at, "%Y-%m") = ?', [$current_month])
+                               ->first();
+    
+    if (!$existing_payroll) {
+        foreach ($statutory_benefits as $benefit) {
+            $benefit = trim($benefit);
+            $deduction = Deduction::where('name', $benefit)->first();
+    
+            if ($deduction) {
+                $deduction_id = $deduction->deduction_id;
+                break;
+            }
+        }
+    } else {
+        // Use the existing deduction if already present
+        $deduction_id = $existing_payroll->deduction_id;
+    }
+    
+    // Calculate net salary after deductions
+    $total_deductions = $deduction_id ? Deduction::find($deduction_id)->amount : 0;
+    $net_salary = $gross_salary - $total_deductions;
+    
+    // Save payroll to the database
+    $payroll = new Payroll();
+    $payroll->employee_id = $employee_id;
+    $payroll->gross_salary = $untouchgross;  // Save the untouchable gross salary here
+    $payroll->deduction_id = $deduction_id;  // Save the deduction ID correctly
+    $payroll->net_salary = $net_salary;
+    $payroll->save();
+    
+    return $payroll;
+}
+}

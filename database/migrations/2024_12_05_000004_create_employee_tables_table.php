@@ -21,7 +21,7 @@ return new class extends Migration
             $table->enum('gender', ['male', 'female', 'other']);
             $table->unsignedBigInteger('position_id')->nullable();
             $table->string('photo')->nullable();  // This will store the photo's file path
-            $table->enum('statutory_benefits', ['SSS', 'Pag-Ibig', 'PhilHealth', 'SSS,Pag-Ibig', 'SSS,PhilHealth', 'SSS,Pag-Ibig,PhilHealth', 'Pag-Ibig,PhilHealth']);
+            $table->string('statutory_benefits', 255);
             $table->timestamps();
         
             // Foreign key relationship

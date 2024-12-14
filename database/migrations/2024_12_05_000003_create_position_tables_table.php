@@ -15,7 +15,8 @@ return new class extends Migration
         Schema::create('positions', function (Blueprint $table) {
             $table->id('position_id');
             $table->string('position_name', 255);
-            $table->integer('rate_per_hour');
+            $table->decimal('rate_per_hour', 6,2);
+
             $table->timestamps();
         });
         
