@@ -292,7 +292,6 @@
                 <table class="table table-striped table-hover table-bordered align-middle">
                     <thead class="table-primary">
                         <tr>
-                            <th>Date</th>
                             <th>Employee ID</th>
                             <th>Name</th>
                             <th>Time In</th>
@@ -303,7 +302,6 @@
                     <tbody>
                         @forelse ($attendances as $attendance)
                             <tr>
-                                <td>{{ $attendance->date }}</td>
                                 <td>{{ $attendance->employee_id }}</td>
                                 <td>{{ optional($attendance->employee)->first_name . ' ' . optional($attendance->employee)->last_name }}</td>
                                 <td>{{ $attendance->check_in_time }}</td>

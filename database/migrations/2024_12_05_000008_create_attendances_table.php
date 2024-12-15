@@ -1,4 +1,5 @@
 <?php
+
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
@@ -15,6 +16,10 @@ return new class extends Migration
             $table->foreignId('employee_id')
                 ->constrained('employees', 'employee_id')
                 ->onDelete('cascade');  // When an employee is deleted, their attendance will be deleted
+            $table->foreignId('schedule_id')
+                ->nullable()
+                ->constrained('schedules', 'schedule_id')
+                ->onDelete('set null');  // When schedule is deleted, set schedule_id to null
             $table->datetime('check_in_time');
             $table->datetime('check_out_time')->nullable();
             $table->foreignId('holiday_id')
@@ -27,7 +32,6 @@ return new class extends Migration
                 ->onDelete('set null');  // When overtime is deleted, set overtime_id to null
             $table->timestamps();
         });
-        
     }
 
     /**

@@ -200,90 +200,99 @@
         events: @json($holidays ?? []),
 
         eventClick: function (info) {
-            console.log("Event clicked:", info.event);
-            if (!info.event.id) {
-                Swal.fire('Error', 'Event data is incomplete.', 'error');
-                return;
-            }
+    if (!info.event.id) {
+        Swal.fire('Error', 'Event data is incomplete.', 'error');
+        return;
+    }
 
+    Swal.fire({
+        title: 'Event Action',
+        text: `You clicked on "${info.event.title}".`,
+        icon: 'info',
+        showDenyButton: true,
+        showCancelButton: true,
+        confirmButtonText: 'Edit',
+        denyButtonText: 'Delete',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            // Edit Holiday
             Swal.fire({
-                title: 'Event Action',
-                text: `You clicked on "${info.event.title}".`,
-                icon: 'info',
-                showDenyButton: true,
+                title: 'Edit Holiday',
+                html:
+                    `<input type="text" id="edit-title" class="swal2-input" value="${info.event.title}" placeholder="Holiday Name">` +
+                    `<input type="date" id="edit-date" class="swal2-input" value="${info.event.startStr}" placeholder="Holiday Date">`,
                 showCancelButton: true,
-                confirmButtonText: 'Edit',
-                denyButtonText: 'Delete',
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    Swal.fire({
-                        title: 'Edit Holiday',
-                        input: 'text',
-                        inputLabel: 'Enter a new title:',
-                        inputValue: info.event.title,
-                        showCancelButton: true,
-                        confirmButtonText: 'Save',
-                    }).then((editResult) => {
-                        if (editResult.isConfirmed) {
-                            fetch('{{ route('holiday.update') }}', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                                },
-                                body: JSON.stringify({
-                                    id: info.event.id,
-                                    title: editResult.value
-                                })
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    info.event.setProp('title', editResult.value);
-                                    Swal.fire('Updated!', `Holiday updated to "${editResult.value}".`, 'success');
-                                } else {
-                                    Swal.fire('Error', data.message, 'error');
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                Swal.fire('Error', 'Failed to update holiday.', 'error');
-                            });
-                        }
-                    });
-                } else if (result.isDenied) {
-                    Swal.fire({
-                        title: 'Confirm Deletion',
-                        text: `Are you sure you want to delete "${info.event.title}"?`,
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Yes, delete it',
-                    }).then((deleteResult) => {
-                        if (deleteResult.isConfirmed) {
-                            fetch(`/holiday/${info.event.id}`, {
-                                method: 'DELETE',
-                                headers: {
-                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                                }
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    info.event.remove();
-                                    Swal.fire('Deleted!', data.message, 'success');
-                                } else {
-                                    Swal.fire('Error', data.message, 'error');
-                                }
-                            })
-                            .catch(error => {
-                                console.error('Error:', error);
-                                Swal.fire('Error', 'Failed to delete holiday.', 'error');
-                            });
-                        }
-                    });
+                confirmButtonText: 'Save',
+            }).then((editResult) => {
+                if (editResult.isConfirmed) {
+                    const newTitle = document.getElementById('edit-title').value;
+                    const newDate = document.getElementById('edit-date').value;
+
+                    fetch(`{{ url('/holiday') }}/${info.event.id}`, { // Use 'id' directly here
+    method: 'PUT',
+    headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+    },
+    body: JSON.stringify({
+        description: newTitle, // Corrected variable name
+        holiday_date: newDate
+    })
+})
+
+
+                        .then((response) => response.json())
+                        .then((data) => {
+                            if (data.success) {
+                                info.event.setProp('title', newTitle);
+                                info.event.setStart(newDate);
+                                Swal.fire('Updated!', 'Holiday updated successfully!', 'success');
+                            } else {
+                                Swal.fire('Error', data.message, 'error');
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Error:', error);
+                            Swal.fire('Error', 'Failed to update holiday.', 'error');
+                        });
                 }
             });
-        },
+        } else if (result.isDenied) {
+            // Delete Holiday
+            Swal.fire({
+                title: 'Confirm Deletion',
+                text: `Are you sure you want to delete "${info.event.title}"?`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonText: 'Yes, delete it',
+            }).then((deleteResult) => {
+                if (deleteResult.isConfirmed) {
+                    fetch(`{{ url('/holiday') }}/${info.event.id}`, { // Use 'id' directly here
+    method: 'DELETE',
+    headers: {
+        'X-CSRF-TOKEN': '{{ csrf_token() }}'
+    }
+})
+
+                        .then((response) => response.json())
+                        .then((data) => {
+                            if (data.success) {
+                                info.event.remove();
+                                Swal.fire('Deleted!', data.message, 'success');
+                            } else {
+                                Swal.fire('Error', data.message, 'error');
+                            }
+                        })
+                        .catch((error) => {
+                            console.error('Error:', error);
+                            Swal.fire('Error', 'Failed to delete holiday.', 'error');
+                        });
+                }
+            });
+        }
+    });
+},
+
     });
 
     calendar.render();

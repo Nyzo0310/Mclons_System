@@ -2,128 +2,126 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>Schedule Management</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Font Awesome -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
-    <style>
-        /* Global Styles */
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f8f9fa;
-        }
+</head>
+<style>
+    /* Global Styles */
+    body {
+        font-family: 'Arial', sans-serif;
+        background: #f8f9fa; /* Light gray background */
+        color: #495057;
+        margin: 0;
+    }
 
-        .main-content {
-            max-width: 1200px;
-            margin: 40px auto;
-            padding: 20px;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-        }
+    h2 {
+        font-family: Georgia, serif;
+        font-size: 30px;
+        font-weight: bold;
+        color: #495057;
+        margin-bottom: 20px;
+    }
 
-        .page-title {
-            font-family: Georgia, serif;
-            font-size: 30px;
-            font-weight: 600;
-            color: #495057;
-            text-align: left; /* Aligns the title to the left */
-            margin-bottom: 20px;
-        }
-        
+    /* Navbar Styles */
+    .navbar {
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        color: white;
+        padding: 10px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+    }
 
-        .text-muted {
-            font-size: 0.9rem;
-            color: #6c757d;
-        }
+    .navbar-brand {
+        color: white !important;
+        font-weight: bold;
+        font-size: 1.5rem;
+    }
 
-        .table-wrapper {
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-        }
+    /* Table Wrapper */
+    .table-wrapper {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+    }
 
-        .table thead th {
-            background: linear-gradient(90deg, #007bff, #0056b3);
-            color: white;
-            text-align: center;
-            font-weight: bold;
-            padding: 10px;
-            text-transform: uppercase;
-        }
+    /* Table Styles */
+    .table {
+        text-align: center;
+        border-collapse: collapse;
+        margin-bottom: 0;
+    }
 
-        .table tbody td {
-            text-align: center;
-            vertical-align: middle;
-        }
+    .table thead th {
+        background: linear-gradient(90deg, #007bff, #0056b3);
+        color: white;
+        text-transform: uppercase;
+        font-weight: bold;
+        padding: 10px;
+    }
 
-        .table tbody tr:nth-child(even) {
-            background-color: #f8f9fa;
-        }
+    .table tbody tr:hover {
+        background-color: #e9ecef;
+        transition: background-color 0.3s ease;
+    }
 
-        .table tbody tr:hover {
-            background-color: #e2e6ea;
-        }
+    .table tbody td {
+        padding: 12px;
+        border: 1px solid #dee2e6;
+    }
 
-        .btn-primary, .btn-danger {
-            border: none;
-            transition: all 0.3s ease;
-        }
+    .table tbody tr:nth-child(even) {
+        background-color: #f8f9fa;
+    }
 
-        .btn-primary {
-            background: linear-gradient(90deg, #007bff, #0056b3);
-            color: white;
-            font-size: 1.1rem; /* Larger font size */
-            border-radius: 6px; /* Rounded edges */
-            box-shadow: 0px 4px 6px rgba(0, 0, 0, 0.1); /* Soft shadow */
-            transition: all 0.3s ease; /* Smooth transition for hover effect */
-        }
+    /* Buttons */
+    .btn-primary, .btn-danger, .btn-success {
+        border: none;
+        border-radius: 5px;
+        padding: 8px 12px;
+        font-size: 0.9rem;
+        transition: all 0.3s ease;
+    }
 
-        .btn-primary:hover {
-            background: linear-gradient(90deg, #0056b3, #004085);
-            transform: scale(1.05); /* Slight enlargement */
-            color: #f8f9fa; /* Ensure contrast */
-        }
+    .btn-primary {
+        background: linear-gradient(90deg, #007bff, #0056b3);
+    }
 
-        .btn-lg {
-            font-weight: bold;
-            padding: 12px 20px; /* Add padding for a larger button */
-        }
+    .btn-danger {
+        background: linear-gradient(90deg, #dc3545, #b02a37);
+    }
 
-        .btn-danger {
-            background: linear-gradient(90deg, #dc3545, #b02a37);
-        }
+    .btn-primary:hover, .btn-danger:hover, .btn-success:hover {
+        opacity: 0.9;
+        transform: scale(1.05);
+    }
 
-        .btn-danger:hover {
-            background: linear-gradient(90deg, #b02a37, #841a26);
-            transform: scale(1.05);
-        }
+    /* Modals */
+    .modal-header {
+        background: linear-gradient(90deg, #007bff, #0056b3);
+        color: white;
+    }
 
-        .empty-state {
-            text-align: center;
-            font-weight: bold;
-            color: #6c757d;
-            padding: 20px;
-        }
+    .modal-content {
+        border-radius: 8px;
+        box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+    }
 
-        /* Modal Styles */
-        .modal-content {
-            border-radius: 8px;
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
-        }
+    .modal-footer {
+        border-top: none;
+    }
 
-        .modal-header {
-            background: linear-gradient(90deg, #007bff, #0056b3);
-            color: white;
-            border-radius: 8px 8px 0 0;
-        }
-
-        /* Navbar Styles */
-        .navbar {
+    /* Alerts */
+    .alert {
+        border-radius: 5px;
+        font-weight: bold;
+    }
+           /* Navbar Styles */
+           .navbar {
             background: linear-gradient(45deg, #007bff, #0056b3);
             padding: 10px 20px;
             color: white;
@@ -136,7 +134,23 @@
         .navbar-brand {
             font-size: 1.5rem;
             font-weight: bold;
-            color: white;
+            color: white !important;
+            margin-right: 10px;
+        }
+
+        .navbar .menu-and-logo {
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar .username {
+            display: flex;
+            align-items: center;
+        }
+
+        .navbar .username i {
+            margin-right: 5px;
+            font-size: 1.2rem;
         }
 
         /* Sidebar Styles */
@@ -152,14 +166,30 @@
             color: white;
         }
 
-        .sidebar-section {
-            background-color: #444;
-            color: white;
-            padding: 15px;
-            font-weight: bold;
+        .offcanvas-body {
+            padding: 20px 10px;
+        }
+
+        /* Fancy Scrollbar */
+        .offcanvas-body::-webkit-scrollbar {
+            width: 8px;
+        }
+        .offcanvas-body::-webkit-scrollbar-thumb {
+            background-color: #007bff;
             border-radius: 5px;
         }
 
+        /* Sidebar Section Heading Styles */
+        .sidebar-section {
+            background-color: #444;
+            color: #ffffff;
+            padding: 15px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            border-radius: 5px;
+        }
+
+        /* Sidebar Menu Link */
         .sidebar a {
             text-decoration: none;
             color: white;
@@ -168,19 +198,29 @@
             align-items: center;
             border-radius: 4px;
             margin: 5px 0;
-            transition: background-color 0.3s ease, transform 0.3s ease;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
         .sidebar a:hover {
             background-color: #007bff;
+            color: #ffffff;
             transform: scale(1.05);
+            transition: transform 0.3s ease, background-color 0.3s ease;
         }
 
         .sidebar a i {
             margin-right: 10px;
         }
-    </style>
-</head>
+
+        /* User Info */
+        .user-info img {
+            border-radius: 50%;
+            border: 2px solid #007bff;
+            padding: 3px;
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+        }
+</style>
+
 <body>
     <!-- Navbar -->
     <nav class="navbar">
@@ -244,115 +284,199 @@
 
                 <div class="sidebar-section">Printables</div>
                 <a href="{{ route('admin.payroll') }}"><i class="fas fa-print"></i> Payroll</a>
-
             </div>
         </div>
     </div>
 
-    <!-- Updated Header for Schedule Management -->
-<div class="main-content">
-    <div class="page-title">
-        Manage Schedule
+<div class="container mt-5">
+    <h2>Manage Schedule</h2>
+
+    <!-- Success Message -->
+    @if (session('success'))
+        <div class="alert alert-success">{{ session('success') }}</div>
+    @endif
+    <!-- Validation Errors -->
+    @if ($errors->any())
+        <div class="alert alert-danger">
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <!-- Add New Schedule Button -->
+    <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#addScheduleModal">Add New Schedule</button>
+
+    <!-- Schedule Table -->
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Description</th>
+                <th>Check-In Time</th>
+                <th>Check-Out Time</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($schedules as $schedule)
+                <tr>
+                    <td>{{ $schedule->schedule_id }}</td>
+                    <td>{{ $schedule->description }}</td>
+                    <td>{{ $schedule->check_in_time }}</td>
+                    <td>{{ $schedule->check_out_time }}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="openEditModal({{ json_encode($schedule) }})">Edit</button>
+                        <button class="btn btn-sm btn-danger" onclick="confirmDelete({{ $schedule->schedule_id }})">Delete</button>
+                    </td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+</div>
+
+<!-- Add Schedule Modal -->
+<div class="modal fade" id="addScheduleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="POST" action="{{ route('schedule.store') }}">
+            @csrf
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5>Add Schedule</h5>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <select name="description" id="description" class="form-select" required>
+                            <option value="morning">Morning</option>
+                            <option value="night">Night</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="check_in_time" class="form-label">Check-In Time</label>
+                        <input type="time" name="check_in_time" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="check_out_time" class="form-label">Check-Out Time</label>
+                        <input type="time" name="check_out_time" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Add</button>
+                </div>
+            </div>
+        </form>
     </div>
-
-    <div class="table-wrapper">
-        <!-- Add New Schedule Button -->
-        <div class="d-flex justify-content-start mb-3">
-            <button class="btn btn-primary btn-lg px-4 py-2" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
-                <i class="fas fa-plus-circle"></i> Add New Schedule
-            </button>
-        </div>
-
-
-        <!-- Responsive Table -->
-        <div class="table-responsive">
-            <table class="table table-bordered table-hover align-middle">
-                <thead>
-                    <tr>
-                        <th><i class="fas fa-id-badge"></i> Schedule ID</th>
-                        <th><i class="fas fa-calendar-alt"></i> Work Date</th>
-                        <th><i class="fas fa-clock"></i> Time In</th>
-                        <th><i class="fas fa-clock"></i> Time Out</th>
-                        <th><i class="fas fa-tools"></i> Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @forelse($schedules as $schedule)
-                        <tr>
-                            <td>{{ $schedule->schedule_id }}</td>
-                            <td>{{ $schedule->work_date }}</td>
-                            <td>{{ $schedule->start_time }}</td>
-                            <td>{{ $schedule->end_time }}</td>
-                            <td>
-                                <form action="{{ route('schedule.delete', $schedule->schedule_id) }}" method="POST" id="deleteForm{{ $schedule->schedule_id }}">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete({{ $schedule->schedule_id }})">
-                                        <i class="fas fa-trash"></i> Delete
-                                    </button>
-                                </form>
-                            </td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5" class="empty-state">No schedules available</td>
-                        </tr>
-                    @endforelse
-                </tbody>
-            </table>
-        </div>
+</div>
+<!-- Edit Schedule Modal -->
+<div class="modal fade" id="editScheduleModal" tabindex="-1">
+    <div class="modal-dialog">
+        <form id="editScheduleForm">
+            @csrf
+            <input type="hidden" id="edit_schedule_id">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Edit Schedule</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_description" class="form-label">Description</label>
+                        <select id="edit_description" class="form-select" required>
+                            <option value="morning">Morning</option>
+                            <option value="night">Night</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_check_in_time" class="form-label">Check-In Time</label>
+                        <input type="time" id="edit_check_in_time" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_check_out_time" class="form-label">Check-Out Time</label>
+                        <input type="time" id="edit_check_out_time" class="form-control" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Update Schedule</button>
+                </div>
+            </div>
+        </form>
     </div>
 </div>
 
-    <!-- Add Schedule Modal -->
-    <div class="modal fade" id="addScheduleModal" tabindex="-1" aria-labelledby="addScheduleModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="addScheduleModalLabel">Add New Schedule</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form action="{{ route('schedule.store') }}" method="POST">
-                        @csrf
-                        <div class="mb-3">
-                            <label for="work_date" class="form-label">Work Date</label>
-                            <input type="date" name="work_date" id="work_date" class="form-control" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="start_time" class="form-label">Start Time</label>
-                            <input type="time" name="start_time" id="start_time" class="form-control" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="end_time" class="form-label">End Time</label>
-                            <input type="time" name="end_time" id="end_time" class="form-control" required>
-                        </div>
-                        <button type="submit" class="btn btn-success w-100">Add Schedule</button>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script>
-        function confirmDelete(scheduleId) {
-            Swal.fire({
-                title: 'Are you sure?',
-                text: "You won't be able to revert this!",
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#3085d6',
-                cancelButtonColor: '#d33',
-                confirmButtonText: 'Yes, delete it!'
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    document.getElementById('deleteForm' + scheduleId).submit();
-                }
-            });
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    // Function to open the Edit Modal and populate data
+    function openEditModal(schedule) {
+        document.getElementById('edit_schedule_id').value = schedule.schedule_id;
+        document.getElementById('edit_description').value = schedule.description;
+        document.getElementById('edit_check_in_time').value = schedule.check_in_time;
+        document.getElementById('edit_check_out_time').value = schedule.check_out_time;
+
+        const editModal = new bootstrap.Modal(document.getElementById('editScheduleModal'));
+        editModal.show();
+    }
+    document.getElementById('editScheduleForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const id = document.getElementById('edit_schedule_id').value;
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+    fetch(`/schedule/${id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': csrfToken
+        },
+        body: JSON.stringify({
+            description: document.getElementById('edit_description').value,
+            check_in_time: document.getElementById('edit_check_in_time').value,
+            check_out_time: document.getElementById('edit_check_out_time').value
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log(data); // Log response for debugging
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert('Update failed: ' + data.message);
         }
-    </script>
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An unexpected error occurred!');
+    });
+});
+
+
+    // Handle Delete Confirmation
+    function confirmDelete(id) {
+        if (confirm('Are you sure you want to delete this schedule?')) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+
+            fetch(`/schedule/${id}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-TOKEN': csrfToken
+                }
+            }).then(response => response.json())
+              .then(data => {
+                  if (data.success) {
+                      alert(data.message);
+                      location.reload();
+                  } else {
+                      alert('Delete failed: ' + data.message);
+                  }
+              }).catch(error => console.error('Error:', error));
+        }
+    }
+</script>
+
 </body>
 </html>

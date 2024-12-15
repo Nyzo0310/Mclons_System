@@ -261,6 +261,7 @@
                             <th>Contact No</th>
                             <th>Gender</th>
                             <th>Position</th>
+                            <th>Schedule</th>
                             <th>Statutory Benefits</th>
                             <th>Action</th>
                         </tr>
@@ -294,7 +295,8 @@
                                     <td>{{ $employee->contact_no }}</td>
                                     <td>{{ $employee->gender }}</td>
                                     <td>{{ $employee->position?->position_name ?? 'N/A' }}</td>
-                                    <td>{{ $employee->statutory_benefits }}</td>
+                                    <td>{{ $employee->schedule?->description ?? 'N/A' }}</td>
+                                    <td>{{ $employee->deduction ? $employee->deduction->name : 'N/A' }}</td>
                                     <td>
                                         <button class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#editEmployeeModal" onclick="editEmployee({{ $employee->employee_id }})">
                                             <i class="fas fa-edit"></i> Edit
@@ -412,7 +414,7 @@
 </div>
 </div>
 </div>
-
+<!-- Edit Employee Modal -->
 <div class="modal fade" id="editEmployeeModal" tabindex="-1" aria-labelledby="editEmployeeModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -421,31 +423,32 @@
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <form id="editEmployeeForm">
-                    <input type="hidden" id="edit_employee_id">
+                <form id="editEmployeeForm" method="POST" action="" enctype="multipart/form-data">
+                    @csrf
+                    @method('PUT') <!-- Required for the PUT method -->
                     <div class="mb-3">
                         <label for="edit_first_name" class="form-label">First Name</label>
-                        <input type="text" class="form-control" id="edit_first_name" name="first_name">
+                        <input type="text" class="form-control" id="edit_first_name" name="first_name" required>
                     </div>
                     <div class="mb-3">
                         <label for="edit_last_name" class="form-label">Last Name</label>
-                        <input type="text" class="form-control" id="edit_last_name" name="last_name">
+                        <input type="text" class="form-control" id="edit_last_name" name="last_name" required>
                     </div>
                     <div class="mb-3">
                         <label for="edit_address" class="form-label">Address</label>
-                        <input type="text" class="form-control" id="edit_address" name="address">
+                        <input type="text" class="form-control" id="edit_address" name="address" required>
                     </div>
                     <div class="mb-3">
                         <label for="edit_birthdate" class="form-label">Birthdate</label>
-                        <input type="date" class="form-control" id="edit_birthdate" name="birthdate">
+                        <input type="date" class="form-control" id="edit_birthdate" name="birthdate" required>
                     </div>
                     <div class="mb-3">
                         <label for="edit_contact_no" class="form-label">Contact No</label>
-                        <input type="text" class="form-control" id="edit_contact_no" name="contact_no">
+                        <input type="text" class="form-control" id="edit_contact_no" name="contact_no" required>
                     </div>
                     <div class="mb-3">
                         <label for="edit_gender" class="form-label">Gender</label>
-                        <select id="edit_gender" name="gender" class="form-select">
+                        <select id="edit_gender" name="gender" class="form-select" required>
                             <option value="Male">Male</option>
                             <option value="Female">Female</option>
                         </select>
@@ -454,17 +457,36 @@
                         <label for="edit_position_id" class="form-label">Position</label>
                         <select id="edit_position_id" name="position_id" class="form-select">
                             <option value="">No Position</option>
-                                @foreach ($positions as $position)
-                                    <option value="{{ $position->position_id }}">{{ $position->position_name }}</option>
-                                @endforeach
+                            @foreach ($positions as $position)
+                                <option value="{{ $position->position_id }}">{{ $position->position_name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_schedule" class="form-label">Schedule</label>
+                        <select id="edit_schedule" name="schedule_id" class="form-select" required>
+                            <option value="">Select Schedule</option>
+                            @foreach ($schedules as $schedule)
+                            <option value="{{ $schedule->schedule_id }}">
+                                {{ $schedule->description }}
+                            </option>
+                            
+                            @endforeach
                         </select>
                     </div>
                     <div class="mb-3">
                         <label for="edit_statutory_benefits" class="form-label">Statutory Benefits</label>
-                        <option value="">Select Benefits</option>
-                        @foreach ($deduction as $statutory)
-                            <option value="{{ $statutory->deduction_id }}">{{ $statutory->name }}</option>
-                        @endforeach
+                        <select id="edit_statutory_benefits" name="statutory_benefits" class="form-select" required>
+                            <option value="">Select Benefits</option>
+                            @foreach ($deduction as $statutory)
+                                <option value="{{ $statutory->deduction_id }}">{{ $statutory->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_photo" class="form-label">Photo</label>
+                        <input type="file" class="form-control" id="edit_photo" name="photo" accept="image/*">
                     </div>
                     <button type="submit" class="btn btn-success w-100">Save Changes</button>
                 </form>
@@ -477,14 +499,38 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-        function showPhoto(photoUrl) {
-        const modalPhoto = document.getElementById('modalPhoto');
-        modalPhoto.src = photoUrl; // Ensure the full URL is passed
-        new bootstrap.Modal(document.getElementById('photoModal')).show();
+    function editEmployee(employeeId) {
+        fetch(`/employee/${employeeId}`)
+            .then(response => response.json())
+            .then(data => {
+                // Set form values dynamically
+                document.getElementById('editEmployeeForm').action = `/employee/${employeeId}`;
+                document.getElementById('edit_first_name').value = data.first_name;
+                document.getElementById('edit_last_name').value = data.last_name;
+                document.getElementById('edit_address').value = data.address;
+                document.getElementById('edit_birthdate').value = data.birthdate;
+                document.getElementById('edit_contact_no').value = data.contact_no;
+                document.getElementById('edit_gender').value = data.gender;
+                document.getElementById('edit_position_id').value = data.position_id;
+
+                // Populate Schedule Dropdown
+                const scheduleDropdown = document.getElementById('edit_schedule');
+                scheduleDropdown.value = data.schedule_id;
+
+                document.getElementById('edit_statutory_benefits').value = data.statutory_benefits;
+
+                // Show the modal
+                new bootstrap.Modal(document.getElementById('editEmployeeModal')).show();
+            })
+            .catch(error => console.error('Error:', error));
     }
 
+    // Fix modal close issue
+    document.getElementById('editEmployeeModal').addEventListener('hidden.bs.modal', function () {
+        document.querySelector('.modal-backdrop').remove(); // Remove stuck backdrop
+        document.body.classList.remove('modal-open'); // Remove unclickable overlay
+    });
 
-    // Define deleteEmployee globally
     function deleteEmployee(id) {
         Swal.fire({
             title: 'Are you sure?',
@@ -535,5 +581,6 @@
         });
     }
 </script>
+
 </body>
 </html>

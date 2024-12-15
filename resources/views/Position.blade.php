@@ -324,13 +324,13 @@
                                 <td>{{ $positions->position_name }}</td>
                                 <td>{{ $positions->rate_per_hour }}</td>
                                 <td>
-                                    <!-- Edit Button -->
                                     <button class="btn btn-success btn-edit" 
-                                            data-id="{{ $positions->position_id }}" 
-                                            data-name="{{ $positions->position_name }}" 
-                                            data-rate="{{ $positions->rate_per_hour }}">
-                                        <i class="fas fa-edit"></i> Edit
+                                    data-id="{{ $positions->position_id }}" 
+                                    data-name="{{ $positions->position_name }}" 
+                                    data-rate="{{ $positions->rate_per_hour }}">
+                                    <i class="fas fa-edit"></i> Edit
                                     </button>
+                            
                                     <!-- Delete Button -->
                                     <button class="btn btn-danger btn-delete" 
                                             data-id="{{ $positions->position_id }}">
@@ -372,181 +372,89 @@
             </div>
         </div>
     </div>
-
-    <!-- Edit Position Modal -->
-    <div class="modal fade" id="editPositionModal" tabindex="-1" aria-labelledby="editPositionModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="editPositionModalLabel">Edit Position</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="editPositionForm">
-                        @csrf
-                        <input type="hidden" id="edit_position_id">
-                        <div class="mb-3">
-                            <label for="edit_position_name" class="form-label">Position Name</label>
-                            <input type="text" class="form-control" id="edit_position_name" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="edit_rate_per_hour" class="form-label">Rate Per Hour</label>
-                            <input type="number" class="form-control" id="edit_rate_per_hour" step="0.01" min="0" max="99.99" required>
-                        </div>
-                        <button type="submit" class="btn btn-primary w-100">Save</button>
-                    </form>
-                </div>
+<!-- Edit Position Modal -->
+<div class="modal fade" id="editPositionModal" tabindex="-1" aria-labelledby="editPositionModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editPositionModalLabel">Edit Position</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editPositionForm">
+                    @csrf
+                    <input type="hidden" id="edit_position_id">
+                    <div class="mb-3">
+                        <label for="edit_position_name" class="form-label">Position Name</label>
+                        <input type="text" class="form-control" id="edit_position_name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_rate_per_hour" class="form-label">Rate Per Hour</label>
+                        <input type="number" class="form-control" id="edit_rate_per_hour" step="0.01" min="0" max="99.99" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">Save</button>
+                </form>
             </div>
         </div>
     </div>
+</div>
 
-    <!-- JavaScript -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-    <script>
-        document.querySelector('#addPositionForm').addEventListener('submit', function (e) {
-    e.preventDefault(); // Prevent default form submission
+<!-- JavaScript -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    let editModal = new bootstrap.Modal(document.getElementById('editPositionModal'));
 
-    // Collect form data directly from input fields
-    const positionName = document.getElementById('position_name').value.trim();
-    const ratePerHour = document.getElementById('rate_per_hour').value.trim();
+    // Handle Edit Button Click
+    document.body.addEventListener('click', (e) => {
+        if (e.target.closest('.btn-edit')) {
+            const button = e.target.closest('.btn-edit');
+            document.getElementById('edit_position_id').value = button.getAttribute('data-id');
+            document.getElementById('edit_position_name').value = button.getAttribute('data-name');
+            document.getElementById('edit_rate_per_hour').value = button.getAttribute('data-rate');
 
-    if (!positionName || !ratePerHour) {
-        Swal.fire({
-            title: 'Error!',
-            text: 'Both Position Name and Rate Per Hour are required.',
-            icon: 'error',
-            confirmButtonText: 'OK',
-        });
-        return;
-    }
+            editModal.show();
+        }
+    });
 
-    // Send POST request via fetch API
-    fetch('{{ route('admin.saveposition') }}', {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            position_name: positionName,
-            rate_per_hour: ratePerHour,
-        }),
-    })
-        .then((response) => response.json())
-        .then((data) => {
+    // Submit Edit Form
+    document.getElementById('editPositionForm').addEventListener('submit', function (e) {
+        e.preventDefault();
+        const id = document.getElementById('edit_position_id').value;
+        const name = document.getElementById('edit_position_name').value;
+        const rate = document.getElementById('edit_rate_per_hour').value;
+
+        fetch(`/position/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+            },
+            body: JSON.stringify({ position_name: name, rate_per_hour: rate }),
+        })
+        .then(response => response.json())
+        .then(data => {
             if (data.success) {
-                // Close the modal
-                const modal = bootstrap.Modal.getInstance(document.getElementById('addPositionModal'));
-                modal.hide();
-
-                // Show SweetAlert success message
-                Swal.fire({
-                    title: 'Success!',
-                    text: 'Position has been added successfully.',
-                    icon: 'success',
-                    confirmButtonText: 'OK',
-                }).then(() => {
-                    // Reload the page to show the updated position list
-                    location.reload();
-                });
+                Swal.fire('Success', 'Position updated successfully!', 'success').then(() => location.reload());
             } else {
-                Swal.fire({
-                    title: 'Error!',
-                    text: data.message || 'An error occurred while adding the position.',
-                    icon: 'error',
-                    confirmButtonText: 'OK',
-                });
+                Swal.fire('Error', data.message || 'Failed to update position.', 'error');
             }
         })
-        .catch((error) => {
+        .catch(error => {
             console.error('Error:', error);
-            Swal.fire({
-                title: 'Error!',
-                text: 'An unexpected error occurred.',
-                icon: 'error',
-                confirmButtonText: 'OK',
-            });
+            Swal.fire('Error', 'An unexpected error occurred.', 'error');
         });
+    });
+
+    // Properly hide the modal without backdrops
+    document.getElementById('editPositionModal').addEventListener('hidden.bs.modal', function () {
+        document.body.classList.remove('modal-open');
+        const modalBackdrops = document.querySelectorAll('.modal-backdrop');
+        modalBackdrops.forEach(backdrop => backdrop.remove());
+    });
 });
+</script>
 
-
-        document.addEventListener('DOMContentLoaded', () => {
-            // Edit Button Click
-            document.body.addEventListener('click', (e) => {
-                if (e.target.closest('.btn-edit')) {
-                    const button = e.target.closest('.btn-edit');
-                    const id = button.getAttribute('data-id');
-                    const name = button.getAttribute('data-name');
-                    const rate = button.getAttribute('data-rate');
-
-                    document.getElementById('edit_position_id').value = id;
-                    document.getElementById('edit_position_name').value = name;
-                    document.getElementById('edit_rate_per_hour').value = rate;
-
-                    new bootstrap.Modal(document.getElementById('editPositionModal')).show();
-                }
-            });
-
-            // Edit Form Submission
-            document.getElementById('editPositionForm').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const id = document.getElementById('edit_position_id').value;
-                const name = document.getElementById('edit_position_name').value;
-                const rate = document.getElementById('edit_rate_per_hour').value;
-
-                fetch(`/position/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                    },
-                    body: JSON.stringify({ position_name: name, rate_per_hour: rate }),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        Swal.fire('Success', 'Position updated successfully!', 'success').then(() => location.reload());
-                    } else {
-                        Swal.fire('Error', data.message, 'error');
-                    }
-                });
-            });
-
-            // Delete Button Click
-            document.body.addEventListener('click', (e) => {
-                if (e.target.closest('.btn-delete')) {
-                    const button = e.target.closest('.btn-delete');
-                    const id = button.getAttribute('data-id');
-
-                    Swal.fire({
-                        title: 'Are you sure?',
-                        text: 'This action cannot be undone!',
-                        icon: 'warning',
-                        showCancelButton: true,
-                        confirmButtonText: 'Yes, delete it!',
-                    }).then((result) => {
-                        if (result.isConfirmed) {
-                            fetch(`/position/${id}`, {
-                                method: 'DELETE',
-                                headers: {
-                                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                                },
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    Swal.fire('Deleted!', 'Position deleted successfully!', 'success').then(() => location.reload());
-                                } else {
-                                    Swal.fire('Error', data.message, 'error');
-                                }
-                            });
-                        }
-                    });
-                }
-            });
-        });
-    </script>
 </body>
 </html>

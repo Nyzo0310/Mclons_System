@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,10 +8,8 @@ class Holiday extends Model
 {
     use HasFactory;
 
-    protected $primaryKey = 'holiday_id';
-
-    protected $fillable = [
-        'holiday_date',
-        'description',
-    ];
+    protected $table = 'holidays'; // Explicit table name
+    protected $primaryKey = 'holiday_id'; // Use 'holiday_id' as the primary key
+    public $incrementing = true; // Ensure it's auto-incrementing
+    protected $fillable = ['description', 'holiday_date'];
 }

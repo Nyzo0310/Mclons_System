@@ -20,16 +20,20 @@ return new class extends Migration
             $table->string('contact_no', 255);
             $table->enum('gender', ['male', 'female', 'other']);
             $table->unsignedBigInteger('position_id')->nullable();
-            $table->string('photo')->nullable();  // This will store the photo's file path
+            $table->unsignedBigInteger('schedule_id')->nullable(); // Add schedule_id column
+            $table->string('photo')->nullable();
             $table->string('statutory_benefits', 255);
             $table->timestamps();
-        
-            // Foreign key relationship
+
+            // Foreign key relationships
             $table->foreign('position_id')
                 ->references('position_id')->on('positions')
-                ->onDelete('set null');  // If position is deleted, set position_id to null
+                ->onDelete('set null');
+
+            $table->foreign('schedule_id')
+                ->references('schedule_id')->on('schedules')
+                ->onDelete('set null'); // Set to NULL if the schedule is deleted
         });
-        
     }
 
     /**
@@ -37,6 +41,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('employees'); // Corrected table name
+        Schema::dropIfExists('employees'); // Drop the employees table
     }
 };

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
@@ -19,6 +20,7 @@ use App\Models\Schedule;
 
 class Display extends Controller
 {
+    
     public function Display11()
     {
         return view('login');
@@ -31,30 +33,27 @@ class Display extends Controller
     }
     public function Display8()
     {
-        // Fetch all employees and select relevant columns, including their cash advances
-        $employees = Employee::select('employee_id', 'first_name', 'last_name', 'statutory_benefits')
-            ->withSum(['cashAdvances' => function ($query) {
-                $query->where('status', 'approved'); // Only sum approved cash advances
-            }], 'amount')
-            ->get();
+        $employees = Employee::with(['position', 'deduction'])
+            ->get()
+            ->map(function ($employee) {
+                $payroll = $this->calculatePayroll($employee->employee_id);
+                return [
+                    'employee_id' => $employee->employee_id,
+                    'name' => $employee->first_name . ' ' . $employee->last_name,
+                    'position_name' => $employee->position->position_name ?? 'N/A',
+                    'regular_pay' => $payroll->regular_pay ?? 0,
+                    'overtime_pay' => $payroll->overtime_pay ?? 0,
+                    'holiday_pay' => $payroll->holiday_pay ?? 0,
+                    'extra_2to4_pay' => $payroll->extra_2to4_pay ?? 0,
+                    'gross_salary' => $payroll->gross_salary ?? 0,
+                    'deduction_name' => $employee->deduction->name ?? 'None',
+                    'deductions' => $employee->deduction->amount ?? 0,
+                    'cash_advance' => $payroll->cash_advance ?? 0, // Cash advance included
+                    'total_deductions' => ($employee->deduction->amount ?? 0) + ($payroll->cash_advance ?? 0),
+                    'net_salary' => $payroll->net_salary ?? 0,
+                ];
+            });
     
-        // Loop through each employee and calculate payroll
-        foreach ($employees as $employee) {
-            // Check if payroll already exists for the current month (or chosen period)
-            $payroll = $this->calculatePayroll($employee->employee_id);
-    
-            // Attach payroll data to employee
-            $employee->payroll = $payroll;
-            
-            // Attach the total approved cash advance to the employee
-            $employee->approved_cash_advance = $employee->cash_advances_sum_amount;
-            
-            // Optionally, include deduction name or amount if necessary:
-            $employee->deduction_name = $payroll->deduction_id ? Deduction::find($payroll->deduction_id)->name : null;
-            $employee->total_deductions = $payroll->deduction_id ? Deduction::find($payroll->deduction_id)->amount : 0;
-        }
-    
-        // Pass the employees with payroll data to the view
         return view('payroll', ['employees' => $employees]);
     }
     
@@ -87,53 +86,52 @@ class Display extends Controller
 
 
 
-    public function updateHoliday(Request $request)
+    public function updateHoliday(Request $request, $id)
     {
-        $holiday = Holiday::find($request->id);
-
-        if ($holiday) {
-            $holiday->description = $request->title;
-            $holiday->save();
-
+        try {
+            $validated = $request->validate([
+                'description' => 'required|string|max:255',
+                'holiday_date' => 'required|date',
+            ]);
+    
+            $holiday = Holiday::where('holiday_id', $id)->firstOrFail();
+            $holiday->update($validated);
+    
             return response()->json(['success' => true, 'message' => 'Holiday updated successfully!']);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Holiday not found.'], 404);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'An unexpected error occurred.'], 500);
         }
-
-        return response()->json(['success' => false, 'message' => 'Holiday not found!'], 404);
     }
-
-    public function deleteHoliday(Request $request, $id)
+    public function deleteHoliday($id)
     {
-        $holiday = Holiday::find($id);
-
-        if ($holiday) {
+        try {
+            $holiday = Holiday::where('holiday_id', $id)->firstOrFail();
             $holiday->delete();
-
-            if ($request->ajax()) {
-                return response()->json(['success' => true, 'message' => 'Holiday deleted successfully!']);
-            }
-
-            return redirect()->route('admin.holiday')->with('success', 'Holiday deleted successfully.');
+    
+            return response()->json(['success' => true, 'message' => 'Holiday deleted successfully!']);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json(['success' => false, 'message' => 'Holiday not found.'], 404);
+        } catch (\Exception $e) {
+            return response()->json(['success' => false, 'message' => 'An unexpected error occurred.'], 500);
         }
-
-        if ($request->ajax()) {
-            return response()->json(['success' => false, 'message' => 'Holiday not found!'], 404);
-        }
-
-        return redirect()->route('admin.holiday')->with('error', 'Holiday not found.');
     }
-
+    
+    
     public function Display6()
     {
         $holidays = Holiday::all()->map(function ($holiday) {
             return [
-                'id' => $holiday->id,
+                'id' => $holiday->holiday_id, // Use 'holiday_id' here
                 'title' => $holiday->description,
                 'start' => $holiday->holiday_date
             ];
         });
-
+    
         return view('holiday', compact('holidays'));
     }
+    
 
     public function Display4()
     {
@@ -143,76 +141,108 @@ class Display extends Controller
 
     public function Display3()
     {
+    
         // Total Employees
         $totalEmployees = Employee::count();
-        
-        // On-time Percentage (Total On-time / Total Records * 100)
-        $totalAttendance = Attendance::count();
-        $onTimeAttendance = Attendance::whereRaw('
-            (TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
-            (TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("18:10:00") AND HOUR(check_in_time) >= 12)
-        ')->count();
-        $onTimePercentage = $totalAttendance > 0 ? ($onTimeAttendance / $totalAttendance) * 100 : 0;
     
-        // On Time Today
+        // Today's Date
         $today = now()->toDateString();
-        $onTimeToday = Attendance::whereDate('check_in_time', $today)
-            ->whereRaw('
-                (TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
-                (TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("18:10:00") AND HOUR(check_in_time) >= 12)
-            ')
-            ->count();
     
-        // Late Today (including the night time)
-        $lateToday = Attendance::whereDate('check_in_time', $today)
-            ->whereRaw('
-                (TIME_TO_SEC(check_in_time) > TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
-                (TIME_TO_SEC(check_in_time) > TIME_TO_SEC("18:10:00"))
-            ')
-            ->count();
-    
-        // Monthly Attendance Counts (for current month view)
-        $attendanceCountsCurrentMonth = DB::table('attendances')
-            ->selectRaw('
-                YEAR(check_in_time) as year,
-                MONTH(check_in_time) as month,
-                DAY(check_in_time) as day,
-                SUM((TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
-                    (TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("18:10:00") AND HOUR(check_in_time) >= 12)) as ontime,
-                SUM((TIME_TO_SEC(check_in_time) > TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
-                    (TIME_TO_SEC(check_in_time) > TIME_TO_SEC("18:10:00"))) as late
-            ')
-            ->whereYear('check_in_time', now()->year)  // Filter by current year
-            ->whereMonth('check_in_time', now()->month) // Filter by current month
-            ->groupByRaw('YEAR(check_in_time), MONTH(check_in_time), DAY(check_in_time)')
+        // Fetch today's attendance with employees and their schedules
+        $attendancesToday = Attendance::with('employee.schedule')
+            ->whereDate('check_in_time', $today)
             ->get();
     
-        // Yearly Attendance Counts (for whole year view)
-        $attendanceCountsYearly = DB::table('attendances')
-            ->selectRaw('
-                YEAR(check_in_time) as year,
-                MONTH(check_in_time) as month,
-                SUM((TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
-                    (TIME_TO_SEC(check_in_time) <= TIME_TO_SEC("18:10:00") AND HOUR(check_in_time) >= 12)) as ontime,
-                SUM((TIME_TO_SEC(check_in_time) > TIME_TO_SEC("06:10:00") AND HOUR(check_in_time) < 12) OR 
-                    (TIME_TO_SEC(check_in_time) > TIME_TO_SEC("18:10:00"))) as late
-            ')
-            ->whereYear('check_in_time', now()->year)  // Filter by current year
-            ->groupByRaw('YEAR(check_in_time), MONTH(check_in_time)') // Group by month for the entire year
-            ->orderByRaw('YEAR(check_in_time), MONTH(check_in_time)')
-            ->get();
+        // On-Time and Late Today
+        $onTimeToday = $attendancesToday->filter(function ($attendance) {
+            $schedule = $attendance->employee->schedule;
+            if ($schedule && $attendance->check_in_time) {
+                $attendanceTime = Carbon::parse($attendance->check_in_time);
+                $scheduleTime = Carbon::parse($schedule->check_in_time);
+                $differenceInMinutes = $scheduleTime->diffInMinutes($attendanceTime, false); // Negative if early
     
-        // Return the view with the necessary data
+                // Employee is on time if they check in within 10 minutes after the scheduled time or earlier
+                return $differenceInMinutes <= 10;
+            }
+            return false;
+        })->count();
+    
+        $lateToday = $attendancesToday->filter(function ($attendance) {
+            $schedule = $attendance->employee->schedule;
+            if ($schedule && $attendance->check_in_time) {
+                $attendanceTime = Carbon::parse($attendance->check_in_time);
+                $scheduleTime = Carbon::parse($schedule->check_in_time);
+                $differenceInMinutes = $scheduleTime->diffInMinutes($attendanceTime, false);
+    
+                // Employee is late if they check in more than 10 minutes after the scheduled time
+                return $differenceInMinutes > 10;
+            }
+            return false;
+        })->count();
+    
+        // Calculate On-Time Percentage
+        $totalAttendanceToday = $onTimeToday + $lateToday;
+        $onTimePercentage = $totalAttendanceToday > 0
+            ? ($onTimeToday / $totalAttendanceToday) * 100
+            : 0;
+    
+        // Monthly Attendance Report
+        $attendanceCountsCurrentMonth = Attendance::with('employee.schedule')
+            ->whereMonth('check_in_time', now()->month)
+            ->whereNotNull('check_in_time')
+            ->get()
+            ->groupBy(function ($attendance) {
+                return date('j', strtotime($attendance->check_in_time)); // Group by day
+            })
+            ->map(function ($dayAttendances) {
+                $ontime = $dayAttendances->filter(function ($attendance) {
+                    $schedule = $attendance->employee->schedule;
+                    if ($schedule && $attendance->check_in_time) {
+                        $attendanceTime = Carbon::parse($attendance->check_in_time);
+                        $scheduleTime = Carbon::parse($schedule->check_in_time);
+                        $differenceInMinutes = $scheduleTime->diffInMinutes($attendanceTime, false);
+                        return $differenceInMinutes <= 10;
+                    }
+                    return false;
+                })->count();
+    
+                $late = $dayAttendances->filter(function ($attendance) {
+                    $schedule = $attendance->employee->schedule;
+                    if ($schedule && $attendance->check_in_time) {
+                        $attendanceTime = Carbon::parse($attendance->check_in_time);
+                        $scheduleTime = Carbon::parse($schedule->check_in_time);
+                        $differenceInMinutes = $scheduleTime->diffInMinutes($attendanceTime, false);
+                        return $differenceInMinutes > 10;
+                    }
+                    return false;
+                })->count();
+    
+                return [
+                    'ontime' => $ontime,
+                    'late' => $late,
+                ];
+            })->sortKeys();
+    
+        // Prepare data for the chart
+        $attendanceCountsCurrentMonth = $attendanceCountsCurrentMonth->map(function ($data, $day) {
+            return [
+                'day' => $day,
+                'ontime' => $data['ontime'],
+                'late' => $data['late'],
+            ];
+        })->values();
+    
+        // Return data to the dashboard view
         return view('admindash', compact(
-            'totalEmployees', 
-            'onTimePercentage', 
-            'onTimeToday', 
-            'lateToday', 
-            'attendanceCountsCurrentMonth', 
-            'attendanceCountsYearly'
+            'totalEmployees',
+            'onTimePercentage',
+            'onTimeToday',
+            'lateToday',
+            'attendanceCountsCurrentMonth'
         ));
     }
-       
+    
+     
     public function Display10()
     {
         // Fetching cash advances with employee details using Eloquent relationship
@@ -284,11 +314,15 @@ public function destroy($id)
     public function DisplayAddEmployeeList()
     {
         $deduction = Deduction::all();
-        $employees = Employee::all(); // Fetch all employees
-        $positions = Position::all(); // Fetch all positions
-        return view('EmployeeList', compact('employees', 'positions', 'deduction'));
+        $employees = Employee::with('deduction', 'schedule')->get(); // Load relationships
+        $positions = Position::all();
+        $schedules = Schedule::all(); // Fetch all schedules from the database
+    
+        return view('EmployeeList', compact('employees', 'positions', 'deduction', 'schedules'));
     }
-
+    
+    
+    
 
     public function Display1()
     {
@@ -325,25 +359,99 @@ public function destroy($id)
         return response()->json(['success' => true, 'message' => 'Deduction added successfully.']);
     }
 
-    public function Display5()
-{
-    $schedules = Schedule::all(); // Fetch all schedules from the database
-    return view('schedule', compact('schedules')); // Pass schedules to the view
-}
-
-
-    public function AddSched(Request $request)
-    {
-        $validated = $request->validate([
-            'work_date' => 'required|date',
-            'start_time' => 'required',
-            'end_time' => 'required|after:start_time', // Ensure end time is after start time
-        ]);
-
-        Schedule::create($validated);
-
-        return redirect()->route('admin.schedule')->with('success', 'Schedule added successfully!');
-    }
+        // Display all schedules
+        public function Display5()
+        {
+            $schedules = Schedule::all();
+            return view('schedule', compact('schedules'));
+        }
+    
+        // Add a new schedule
+        public function addSchedule(Request $request)
+        {
+            Log::info('Request Data:', $request->all());
+        
+            try {
+                $validated = $request->validate([
+                    'description' => 'required|string',
+                    'check_in_time' => 'required|date_format:H:i',
+                    'check_out_time' => 'required|date_format:H:i',
+                ]);
+        
+                // Handle overnight shift: check if check_out_time is before check_in_time
+                $checkInTime = Carbon::createFromFormat('H:i', $validated['check_in_time']);
+                $checkOutTime = Carbon::createFromFormat('H:i', $validated['check_out_time']);
+        
+                // If check-out time is less than or equal to check-in time, assume next day
+                if ($checkOutTime <= $checkInTime) {
+                    $checkOutTime->addDay();
+                }
+        
+                // Store the schedule
+                Schedule::create([
+                    'description' => $validated['description'],
+                    'check_in_time' => $checkInTime->format('H:i'),  // Save as 'H:i'
+                    'check_out_time' => $checkOutTime->format('H:i'), // Save as 'H:i'
+                ]);
+        
+                Log::info('Schedule created successfully.');
+        
+                return redirect()->route('admin.schedule')->with('success', 'Schedule added successfully!');
+            } catch (\Exception $e) {
+                Log::error('Add Schedule Error: ' . $e->getMessage());
+                return back()->withErrors(['error' => 'Failed to add schedule.']);
+            }
+        }
+        
+        public function updateSchedule(Request $request, $schedule_id)
+        {
+            try {
+                // Allow more flexible time input
+                $validated = $request->validate([
+                    'description' => 'required|string',
+                    'check_in_time' => 'required',
+                    'check_out_time' => 'required',
+                ]);
+        
+                // Parse times in flexible formats (supports AM/PM or H:i)
+                $checkInTime = Carbon::parse($validated['check_in_time']);
+                $checkOutTime = Carbon::parse($validated['check_out_time']);
+        
+                // Handle overnight shifts: add a day to check-out if earlier than check-in
+                if ($checkOutTime <= $checkInTime) {
+                    $checkOutTime->addDay();
+                }
+        
+                // Update the schedule
+                $schedule = Schedule::findOrFail($schedule_id);
+                $schedule->update([
+                    'description' => $validated['description'],
+                    'check_in_time' => $checkInTime->format('H:i'),  // Store in H:i (24-hour format)
+                    'check_out_time' => $checkOutTime->format('H:i'),
+                ]);
+        
+                return response()->json(['success' => true, 'message' => 'Schedule updated successfully!']);
+            } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+                return response()->json(['success' => false, 'message' => 'Schedule not found.'], 404);
+            } catch (\Exception $e) {
+                Log::error('Update Schedule Error: ' . $e->getMessage());
+                return response()->json(['success' => false, 'message' => 'Failed to update schedule.'], 500);
+            }
+        }
+        
+        // Delete a schedule
+        public function deleteSchedule($schedule_id)
+        {
+            try {
+                $schedule = Schedule::findOrFail($schedule_id);
+                $schedule->delete();
+    
+                return response()->json(['success' => true, 'message' => 'Schedule deleted successfully!']);
+            } catch (\Exception $e) {
+                Log::error('Delete Schedule Error: ' . $e->getMessage());
+                return response()->json(['success' => false, 'message' => 'Failed to delete schedule.'], 500);
+            }
+        }
 
     public function updateDeduction(Request $request, $id)
     {
@@ -389,14 +497,6 @@ public function destroy($id)
                 'message' => 'An unexpected error occurred.'
             ], 500);
         }
-    }
-
-    public function deleteSchedule($id)
-    {
-        $schedule = Schedule::findOrFail($id);
-        $schedule->delete();
-
-        return redirect()->route('admin.schedule')->with('success', 'Schedule deleted successfully!');
     }
 
     public function addOvertime(Request $request)
@@ -461,6 +561,7 @@ public function deleteOvertime($id)
 
 public function add(Request $request)
 {
+    // Validate incoming request
     $validated = $request->validate([
         'first_name' => 'required|string|max:255',
         'last_name' => 'required|string|max:255',
@@ -468,19 +569,24 @@ public function add(Request $request)
         'birthdate' => 'required|date',
         'contact_no' => 'required|string|max:20',
         'gender' => 'required|in:Male,Female',
-        'position_id' => 'nullable|exists:positions,position_id', // Make position_id optional
-        'statutory_benefits' => 'required|string|max:255',
+        'position_id' => 'nullable|exists:positions,position_id',
+        'statutory_benefits' => 'required|exists:deductions,deduction_id',
         'photo' => 'nullable|image|max:2048',
     ]);
 
-    // Fetch the deduction name based on the deduction_id
-    $deduction = Deduction::find($request->statutory_benefits);
-    if ($deduction) {
-        $validated['statutory_benefits'] = $deduction->name; // Replace ID with the deduction name
-    }
+    // Store statutory_benefits as deduction_id directly
+    $employee = new Employee([
+        'first_name' => $validated['first_name'],
+        'last_name' => $validated['last_name'],
+        'address' => $validated['address'],
+        'birthdate' => $validated['birthdate'],
+        'contact_no' => $validated['contact_no'],
+        'gender' => $validated['gender'],
+        'position_id' => $validated['position_id'],
+        'statutory_benefits' => $validated['statutory_benefits'], // Store as deduction_id
+    ]);
 
-    $employee = new Employee($validated);
-
+    // Handle photo upload
     if ($request->hasFile('photo')) {
         $path = $request->file('photo')->store('photos', 'public');
         $employee->photo = $path;
@@ -490,6 +596,7 @@ public function add(Request $request)
 
     return redirect()->route('admin.addEmployeeList')->with('success', 'Employee added successfully!');
 }
+
 
     public function loginAuth(Request $request)
     {
@@ -506,61 +613,70 @@ public function add(Request $request)
             session()->flash('login_success', 'You have successfully logged in!');
             return redirect()->route('admin.dashboard');
         } else {
-            return redirect('login')->with('incorrect_msg', 'Incorrect Credentials. Login Unsuccessful.');
+            return redirect('/')->with('incorrect_msg', 'Incorrect Credentials. Login Unsuccessful.');
         }
     }
 
     public function Submit(Request $data)
     {
+        // Validate incoming request
         $validated = $data->validate([
             'employee_id' => 'required|integer',
-            'attendancestatus' => 'required',
+            'attendancestatus' => 'required|in:timein,timeout',
             'check_in_time' => 'required|date',
         ]);
-    
+
         $employeeId = $validated['employee_id'];
         $attendanceStatus = $validated['attendancestatus'];
-    
+
         // Check if employee exists
         $employee = Employee::find($employeeId);
         if (!$employee) {
             return back()->with('error', 'Employee not found!');
         }
-    
-        // Adjusting the time based on the 15-minute rule
+
+        // Adjust check-in time based on the 15-minute rule
         $checkInTime = Carbon::parse($validated['check_in_time']);
         $minute = $checkInTime->minute;
-    
+
         if ($minute >= 45 || $minute <= 15) {
-            // Round up to the nearest hour if >= 45 mins, or down if <= 15 mins
-            $adjustedTime = $minute >= 45 
-                ? $checkInTime->copy()->ceilHour() 
+            // Round to the nearest hour
+            $adjustedTime = $minute >= 45
+                ? $checkInTime->copy()->ceilHour()
                 : $checkInTime->copy()->floorHour();
         } else {
-            // Keep the exact time if the minute is between 16 and 44
+            // Keep the exact time if between 16 and 44 minutes
             $adjustedTime = $checkInTime;
         }
-    
-        // Check for attendance based on employee_id and check_in_time
+
+        // Check for a holiday on the current date
+        $holiday = Holiday::whereDate('holiday_date', $adjustedTime->toDateString())->first();
+        $holidayId = $holiday ? $holiday->holiday_id : null;
+
+        // Check if attendance already exists for the employee on the same day
         $attendance = Attendance::where('employee_id', $employeeId)
             ->whereDate('check_in_time', $adjustedTime->toDateString())
             ->first();
-    
+
         if ($attendance) {
+            // Handle Time Out scenario
             if ($attendanceStatus === 'timeout') {
                 $attendance->update([
                     'check_out_time' => now()->toTimeString(),
                 ]);
                 return back()->with('success', 'Time Out recorded successfully!');
             } else {
+                // Time In already exists
                 return back()->with('error', 'Time In already exists for this employee on this date!');
             }
         } else {
+            // Handle Time In scenario
             if ($attendanceStatus === 'timein') {
                 Attendance::create([
                     'employee_id' => $employeeId,
                     'check_in_time' => $adjustedTime,
                     'check_out_time' => null,
+                    'holiday_id' => $holidayId, // Store holiday_id if it's a holiday
                 ]);
                 return back()->with('success', 'Time In recorded successfully!');
             } else {
@@ -568,6 +684,38 @@ public function add(Request $request)
             }
         }
     }
+
+    public function updateEmployee(Request $request, $id)
+    {
+        $validated = $request->validate([
+            'first_name' => 'required|string|max:255',
+            'last_name' => 'required|string|max:255',
+            'address' => 'required|string|max:255',
+            'birthdate' => 'required|date',
+            'contact_no' => 'required|string|max:20',
+            'gender' => 'required|in:Male,Female',
+            'position_id' => 'nullable|exists:positions,position_id',
+            'schedule_id' => 'required|exists:schedules,schedule_id', // Validate foreign key
+            'statutory_benefits' => 'required|string|max:255',
+            'photo' => 'nullable|image|max:2048',
+        ]);
+    
+        // Find the employee and update fields
+        $employee = Employee::findOrFail($id);
+        $employee->update($validated);
+    
+        // Handle photo upload
+        if ($request->hasFile('photo')) {
+            if ($employee->photo && Storage::disk('public')->exists($employee->photo)) {
+                Storage::disk('public')->delete($employee->photo);
+            }
+            $employee->photo = $request->file('photo')->store('photos', 'public');
+            $employee->save();
+        }
+    
+        return redirect()->route('admin.addEmployeeList')->with('success', 'Employee updated successfully!');
+    }
+    
      
     public function deleteEmployee($id)
 {
@@ -626,23 +774,33 @@ public function add(Request $request)
         }
     }
 
+    public function getEmployee($id)
+    {
+        $employee = Employee::findOrFail($id);
+        return response()->json($employee);
+    }
     
     public function updatePosition(Request $request, $id)
     {
+        // Validate the input
         $validated = $request->validate([
             'position_name' => 'required|string|max:255',
             'rate_per_hour' => 'required|numeric|regex:/^\d+(\.\d{1,2})?$/',
         ]);
-
-        $position = Position::where('position_id', $id)->first();
+    
+        // Find the position by its ID
+        $position = Position::find($id);
+    
         if (!$position) {
-            return response()->json(['success' => false, 'message' => 'Position not found.']);
+            return response()->json(['success' => false, 'message' => 'Position not found!'], 404);
         }
-
+    
+        // Update the position details
         $position->update($validated);
-        return response()->json(['success' => true, 'message' => 'Position updated successfully.']);
+    
+        return response()->json(['success' => true, 'message' => 'Position updated successfully!']);
     }
-
+    
 
     public function assignPosition(Request $request)
     {
@@ -663,127 +821,99 @@ public function add(Request $request)
         }
     }
 
-    public function calculatePayroll($employee_id, $payrollType = 'weekly')
-{
-    // Retrieve employee and position details
-    $employee = Employee::find($employee_id);
+    public function calculatePayroll($employee_id)
+    {
+        $employee = Employee::with('position')->find($employee_id);
+        if (!$employee || !$employee->position) {
+            return null;
+        }
     
-    // Hourly rates
-    $regular_rate = $employee->position->rate_per_hour;  // Based on employee's position
-    $overtime_rate = $regular_rate * 1.25; // Assuming overtime is 25% above regular rate
-    $extra_overtime_rate = $regular_rate * 0.10; // Extra overtime rate for hours between 2 AM and 4 AM
+        // Rate calculation
+        $regularRate = $employee->position->rate_per_hour;
+        $overtimeRate = $regularRate * 1.25;
+        $holidayRate = $regularRate * 0.3; // 30% additional for holidays
+        $extra2to4AMRate = $regularRate * 0.1; // 10% additional for 2-4 AM
     
-    // Retrieve the attendance for the employee
-    $attendances = Attendance::where('employee_id', $employee_id)->get();
+        // Attendance data
+        $attendances = Attendance::where('employee_id', $employee_id)->get();
     
-    $total_regular_hours = 0;
-    $total_overtime_hours = 0;
-    $total_extra_overtime_hours = 0; // Track extra overtime hours
+        // Totals
+        $totalRegularHours = 0;
+        $totalOvertimeHours = 0;
+        $totalHolidayPay = 0;
+        $totalExtra2to4AMPay = 0;
     
-    foreach ($attendances as $attendance) {
-        // Check if both check-in and check-out times are available
-        if ($attendance->check_in_time && $attendance->check_out_time) {
-            // Convert check-in and check-out times to Carbon instances for easier calculation
-            $check_in_time = Carbon::parse($attendance->check_in_time);
-            $check_out_time = Carbon::parse($attendance->check_out_time);
+        foreach ($attendances as $attendance) {
+            if ($attendance->check_in_time && $attendance->check_out_time) {
+                $checkIn = Carbon::parse($attendance->check_in_time);
+                $checkOut = Carbon::parse($attendance->check_out_time);
     
-            // If check-out is on the next day, adjust the date
-            if ($check_out_time->lessThan($check_in_time)) {
-                $check_out_time->addDay();
-            }
-    
-            // Calculate total hours worked for the day
-            $hours_worked = $check_in_time->diffInHours($check_out_time);
-    
-            // Calculate regular and overtime hours
-            if ($hours_worked > 8) {
-                $regular_hours = 8; // Regular hours are capped at 8
-                $overtime_hours = $hours_worked - 8; // Extra hours are overtime
-            } else {
-                $regular_hours = $hours_worked; // All hours are regular if <= 8
-                $overtime_hours = 0; // No overtime
-            }
-    
-            // Calculate extra overtime hours (2 AM to 4 AM)
-            $extra_overtime_hours = 0;
-    
-            // Check if the time range overlaps the 2 AM - 4 AM period
-            if (($check_in_time->hour < 4 && $check_out_time->hour >= 2) || ($check_in_time->hour >= 2 && $check_in_time->hour < 4 && $check_out_time->hour > 2)) {
-                // Extra overtime hours will be the overlap between 2 AM to 4 AM
-                $start_extra_overtime = max($check_in_time->hour, 2); // Start of overtime (max of check-in and 2 AM)
-                $end_extra_overtime = min($check_out_time->hour, 4); // End of overtime (min of check-out and 4 AM)
-                $extra_overtime_hours = $end_extra_overtime - $start_extra_overtime; // Calculate the overlap
-    
-                // Ensure that we don't count negative hours (in case of no overlap)
-                if ($extra_overtime_hours < 0) {
-                    $extra_overtime_hours = 0;
+                if ($checkOut->lessThan($checkIn)) {
+                    $checkOut->addDay();
                 }
-            }
     
-            // Add the calculated hours to totals
-            $total_regular_hours += $regular_hours;
-            $total_overtime_hours += $overtime_hours;
-            $total_extra_overtime_hours += $extra_overtime_hours;
-        }
-    }
+                $hoursWorked = $checkIn->diffInHours($checkOut);
     
-    // Calculate total regular, overtime, and extra overtime pay
-    $total_regular_pay = $total_regular_hours * $regular_rate;
-    $total_overtime_pay = $total_overtime_hours * $overtime_rate;
-    $total_extra_overtime_pay = $total_extra_overtime_hours * $extra_overtime_rate;
+                // Split regular and overtime hours
+                $regularHours = min(8, $hoursWorked);
+                $overtimeHours = max(0, $hoursWorked - 8);
     
-    // Calculate gross salary (before any deductions)
-    $gross_salary = $total_regular_pay + $total_overtime_pay + $total_extra_overtime_pay;
-    $untouchgross = $gross_salary; // This is the untouchable gross salary
+                // Check for holiday pay
+                $holiday = Holiday::whereDate('holiday_date', $checkIn->toDateString())->first();
+                if ($holiday) {
+                    $totalHolidayPay += $hoursWorked * $holidayRate;
+                }
     
-    // Now calculate the deductions, net salary, etc., but not affecting untouchgross yet.
-    $cash_advance = CashAdvance::where('employee_id', $employee_id)
-                               ->where('status', 'approved')
-                               ->sum('amount');
+                // 2-4 AM Additional Pay
+                $start2AM = $checkIn->copy()->setHour(2)->setMinute(0);
+                $end4AM = $checkIn->copy()->setHour(4)->setMinute(0);
     
-    // Subtract the approved cash advance from gross salary
-    if ($cash_advance > 0) {
-        $gross_salary -= $cash_advance;
-    }
+                if ($checkOut->greaterThan($start2AM)) {
+                    $extraStart = $checkIn->greaterThan($start2AM) ? $checkIn : $start2AM;
+                    $extraEnd = $checkOut->lessThan($end4AM) ? $checkOut : $end4AM;
     
-    // Retrieve statutory benefits for the employee
-    $statutory_benefits = explode(',', $employee->statutory_benefits);
+                    $extra2to4AMHours = max(0, $extraStart->diffInHours($extraEnd));
+                    $totalExtra2to4AMPay += $extra2to4AMHours * $extra2to4AMRate;
+                }
     
-    $deduction_id = null;
-    
-    // Check for existing payroll
-    $current_month = Carbon::now()->format('Y-m');
-    $existing_payroll = Payroll::where('employee_id', $employee_id)
-                               ->whereRaw('DATE_FORMAT(created_at, "%Y-%m") = ?', [$current_month])
-                               ->first();
-    
-    if (!$existing_payroll) {
-        foreach ($statutory_benefits as $benefit) {
-            $benefit = trim($benefit);
-            $deduction = Deduction::where('name', $benefit)->first();
-    
-            if ($deduction) {
-                $deduction_id = $deduction->deduction_id;
-                break;
+                $totalRegularHours += $regularHours;
+                $totalOvertimeHours += $overtimeHours;
             }
         }
-    } else {
-        // Use the existing deduction if already present
-        $deduction_id = $existing_payroll->deduction_id;
+    
+        // Calculate pays
+        $totalRegularPay = $totalRegularHours * $regularRate;
+        $totalOvertimePay = $totalOvertimeHours * $overtimeRate;
+        $grossSalary = $totalRegularPay + $totalOvertimePay + $totalHolidayPay + $totalExtra2to4AMPay;
+    
+        // Fetch deductions
+        $deductions = $employee->deduction ? $employee->deduction->amount : 0;
+    
+        // Fetch and sum cash advances for this employee
+        $cashAdvanceTotal = CashAdvance::where('employee_id', $employee_id)
+            ->where('status', 'approved')
+            ->sum('amount');
+    
+        // Net salary calculation
+        $netSalary = $grossSalary - $deductions - $cashAdvanceTotal;
+    
+        // Save payroll
+        $payroll = Payroll::updateOrCreate(
+            ['employee_id' => $employee_id, 'created_at' => now()],
+            [
+                'gross_salary' => $grossSalary,
+                'net_salary' => $netSalary,
+                'deduction_id' => $employee->statutory_benefits,
+            ]
+        );
+    
+        // Attach detailed breakdown to the returned object
+        $payroll->regular_pay = $totalRegularPay;
+        $payroll->overtime_pay = $totalOvertimePay;
+        $payroll->holiday_pay = $totalHolidayPay;
+        $payroll->extra_2to4_pay = $totalExtra2to4AMPay;
+        $payroll->cash_advance = $cashAdvanceTotal; // Include cash advance for the breakdown
+    
+        return $payroll;
     }
-    
-    // Calculate net salary after deductions
-    $total_deductions = $deduction_id ? Deduction::find($deduction_id)->amount : 0;
-    $net_salary = $gross_salary - $total_deductions;
-    
-    // Save payroll to the database
-    $payroll = new Payroll();
-    $payroll->employee_id = $employee_id;
-    $payroll->gross_salary = $untouchgross;  // Save the untouchable gross salary here
-    $payroll->deduction_id = $deduction_id;  // Save the deduction ID correctly
-    $payroll->net_salary = $net_salary;
-    $payroll->save();
-    
-    return $payroll;
-}
-}
+}    
