@@ -8,6 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <style>
         /* Global Styles */
         body {
@@ -286,9 +287,13 @@
                     <td>{{ $item->name }}</td>
                     <td>{{ number_format($item->amount, 2) }}</td>
                     <td>
-                        <button class="btn btn-sm btn-success">
+                        <button class="btn btn-sm btn-success edit-deduction" 
+                                data-id="{{ $item->deduction_id }}" 
+                                data-name="{{ $item->name }}" 
+                                data-amount="{{ $item->amount }}">
                             <i class="fas fa-edit"></i> Edit
                         </button>
+
                         <button class="btn btn-sm btn-danger delete-deduction" data-id="{{ $item->deduction_id }}">
                             <i class="fas fa-trash"></i> Delete
                         </button>
@@ -322,6 +327,36 @@
                     <button type="submit" class="btn btn-primary w-100">Save Deduction</button>
                 </form>
             </div>
+        </div>
+    </div>
+</div>
+
+<div id="editDeductionModal" class="modal fade" tabindex="-1" aria-labelledby="editDeductionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editDeductionModalLabel">Edit Deduction</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="editDeductionForm">
+                @csrf
+                @method('PUT')
+                <div class="modal-body">
+                    <input type="hidden" id="editDeductionId" name="deduction_id">
+                    <div class="mb-3">
+                        <label for="editName" class="form-label">Description</label>
+                        <input type="text" class="form-control" id="editName" name="name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="editAmount" class="form-label">Amount</label>
+                        <input type="number" class="form-control" id="editAmount" name="amount" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Update</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -437,6 +472,114 @@
         });
     });
 });
+
+// Handle Edit Button Click
+document.querySelectorAll('.edit-deduction').forEach(button => {
+    button.addEventListener('click', function () {
+        const deductionId = this.getAttribute('data-id');
+        const deductionName = this.getAttribute('data-name');
+        const deductionAmount = this.getAttribute('data-amount');
+
+        // Set form fields
+        document.getElementById('editDeductionId').value = deductionId;
+        document.getElementById('editName').value = deductionName;
+        document.getElementById('editAmount').value = deductionAmount;
+
+        // Set the form action
+        document.getElementById('editDeductionForm').action = `/deduction/${deductionId}`;
+
+        // Show the modal
+        const editModal = new bootstrap.Modal(document.getElementById('editDeductionModal'));
+        editModal.show();
+    });
+});
+
+document.getElementById('editDeductionForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+
+    const form = e.target;
+    const actionUrl = form.action;
+
+    fetch(actionUrl, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+        },
+        body: JSON.stringify({
+            name: document.getElementById('editName').value,
+            amount: document.getElementById('editAmount').value
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Failed to update deduction');
+        }
+        return response.json();
+    })
+    .then(data => {
+        if (data.success) {
+            Swal.fire('Success!', 'Deduction updated successfully.', 'success').then(() => {
+                location.reload();
+            });
+        } else {
+            Swal.fire('Error!', data.message || 'Failed to update deduction.', 'error');
+        }
+    })
+    .catch(error => {
+        console.error(error);
+        Swal.fire('Error!', 'An unexpected error occurred.', 'error');
+    });
+});
+
+
+
+
+    // Handle Delete Deduction
+    document.querySelectorAll('.delete-deduction').forEach(button => {
+    button.addEventListener('click', function () {
+        const deductionId = this.getAttribute('data-id');
+
+        Swal.fire({
+            title: 'Are you sure?',
+            text: 'This action cannot be undone!',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Yes, delete it!',
+            cancelButtonText: 'Cancel'
+        }).then(result => {
+            if (result.isConfirmed) {
+                fetch(`/deduction/${deductionId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Failed to delete deduction');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('Deleted!', 'Deduction has been deleted.', 'success').then(() => {
+                            window.location.reload();
+                        });
+                    } else {
+                        Swal.fire('Error!', data.message || 'Failed to delete deduction.', 'error');
+                    }
+                })
+                .catch(error => {
+                    console.error(error);
+                    Swal.fire('Error!', 'An unexpected error occurred.', 'error');
+                });
+            }
+        });
+    });
+});
+
 
 </script>
 </body>

@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use App\Models\Attendance;
 use App\Models\Employee;
 use App\Models\Overtime;
+use App\Models\Holiday;
 use App\Models\CashAdvance;
 use App\Models\Position;
 use App\Models\Payroll;
@@ -64,9 +65,74 @@ class Display extends Controller
         return view('overtime', compact('overtimes'));
     }
 
+    public function addHoliday(Request $request)
+    {
+        try {
+            $validated = $request->validate([
+                'description' => 'required|string|max:255',
+                'holiday_date' => 'required|date',
+            ]);
+
+            Holiday::create([
+                'description' => $validated['description'],
+                'holiday_date' => $validated['holiday_date'],
+            ]);
+
+            return response()->json(['success' => true, 'message' => 'Holiday added successfully!']);
+        } catch (\Exception $e) {
+            Log::error('Failed to add holiday: ' . $e->getMessage());
+            return response()->json(['success' => false, 'message' => 'Failed to add holiday.'], 500);
+        }
+    }
+
+
+
+    public function updateHoliday(Request $request)
+    {
+        $holiday = Holiday::find($request->id);
+
+        if ($holiday) {
+            $holiday->description = $request->title;
+            $holiday->save();
+
+            return response()->json(['success' => true, 'message' => 'Holiday updated successfully!']);
+        }
+
+        return response()->json(['success' => false, 'message' => 'Holiday not found!'], 404);
+    }
+
+    public function deleteHoliday(Request $request, $id)
+    {
+        $holiday = Holiday::find($id);
+
+        if ($holiday) {
+            $holiday->delete();
+
+            if ($request->ajax()) {
+                return response()->json(['success' => true, 'message' => 'Holiday deleted successfully!']);
+            }
+
+            return redirect()->route('admin.holiday')->with('success', 'Holiday deleted successfully.');
+        }
+
+        if ($request->ajax()) {
+            return response()->json(['success' => false, 'message' => 'Holiday not found!'], 404);
+        }
+
+        return redirect()->route('admin.holiday')->with('error', 'Holiday not found.');
+    }
+
     public function Display6()
     {
-        return view('holiday');
+        $holidays = Holiday::all()->map(function ($holiday) {
+            return [
+                'id' => $holiday->id,
+                'title' => $holiday->description,
+                'start' => $holiday->holiday_date
+            ];
+        });
+
+        return view('holiday', compact('holidays'));
     }
 
     public function Display4()
@@ -279,6 +345,52 @@ public function destroy($id)
         return redirect()->route('admin.schedule')->with('success', 'Schedule added successfully!');
     }
 
+    public function updateDeduction(Request $request, $id)
+    {
+        try {
+            Log::info('Incoming request data: ', $request->all());
+            $validated = $request->validate([
+                'name' => 'required|string|max:255',
+                'amount' => 'required|numeric|min:0',
+            ]);
+
+            $deduction = Deduction::findOrFail($id);
+            $deduction->update($validated);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Deduction updated successfully.',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error updating deduction: ' . $e->getMessage());
+            return response()->json([
+                'success' => false,
+                'message' => 'An unexpected error occurred.',
+            ], 500);
+        }
+    }
+
+    public function editDeduction($id)
+    {
+        try {
+            // Fetch the deduction record by ID
+            $deduction = Deduction::findOrFail($id);
+
+            // Return the deduction data as JSON
+            return response()->json($deduction);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Deduction not found.'
+            ], 404);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'An unexpected error occurred.'
+            ], 500);
+        }
+    }
+
     public function deleteSchedule($id)
     {
         $schedule = Schedule::findOrFail($id);
@@ -302,8 +414,8 @@ public function destroy($id)
             return response()->json(['success' => false, 'message' => 'Failed to add overtime type.'], 500);
         }
     }
-    
 
+    
 public function updateOvertime(Request $request, $id)
 {
     try {

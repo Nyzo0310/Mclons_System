@@ -278,11 +278,15 @@
     <div class="main-content">
         <h2>Attendance Records</h2>
         <!-- Add New Schedule Button -->
-        <div class="add-schedule-button">
-            <a href="{{ route('admin.attendance') }}" class="btn btn-primary">
-                <i class="fas fa-plus" style="margin-right: 8px;"></i> Add New Attendance
-            </a>
-        </div>
+        <div class="add-schedule-button d-flex justify-content-between">
+        <a href="{{ route('admin.attendance') }}" class="btn btn-primary">
+            <i class="fas fa-plus" style="margin-right: 8px;"></i> Add New Attendance
+        </a>
+        <!-- Button to Go to Holiday Page -->
+        <a href="{{ route('admin.holiday') }}" class="btn btn-secondary">
+            <i class="fas fa-calendar" style="margin-right: 8px;"></i> Manage Holidays
+        </a>
+    </div>
         <div class="card-wrapper">
             <div class="table-responsive">
                 <table class="table table-striped table-hover table-bordered align-middle">

@@ -15,9 +15,4 @@ class Holiday extends Model
         'holiday_date',
         'description',
     ];
-
-    public function attendances()
-    {
-        return $this->hasMany(Attendance::class, 'holiday_id');
-    }
 }

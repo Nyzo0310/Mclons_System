@@ -348,21 +348,22 @@
 </div>
 <!-- Monthly Attendance Report -->
 <div class="mt-5" style="height: calc(100vh - 200px);">
-<h4>Monthly Attendance Report</h4>
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <div>
-        <label for="viewSelector" class="form-label">View:</label>
-        <select id="viewSelector" class="form-select" style="width: 200px;">
-            <option value="current">Current Month</option>
-            <option value="year">Whole Year</option>
-        </select>
+    <h4>Monthly Attendance Report</h4>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <label for="viewSelector" class="form-label">View:</label>
+            <select id="viewSelector" class="form-select" style="width: 200px;">
+                <option value="current">Current Month</option>
+                <option value="year">Whole Year</option>
+            </select>
+        </div>
+    </div>
+    <!-- Responsive Full-Width Graph -->
+    <div style="width: 100%; height: 100%;">
+        <canvas id="attendanceChart"></canvas>
     </div>
 </div>
-<!-- Full-Width Graph -->
-<div style="width: 120%; height: 100%;">
-    <canvas id="attendanceChart"></canvas>
-</div>
-</div>
+
 
 
 
@@ -423,8 +424,9 @@ let attendanceChart = new Chart(ctx, {
             },
         ],
     },
-    options: {
+        options: {
         responsive: true,
+        maintainAspectRatio: false, // This ensures it fills the container
         plugins: {
             legend: {
                 position: 'top',
