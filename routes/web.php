@@ -18,7 +18,7 @@ Route::get('/cashadvance',[Display::class,'Display10'])->name('admin.cashadvance
 Route::get('/',[Display::class,'Display11'])->name('admin.login');
 
 Route::delete('/deduction/{id}', [Display::class, 'deleteDeduction'])->name('deduction.delete');
-Route::delete('/position/{id}', [Display::class, 'deletePosition'])->name('position.delete');
+Route::delete('/position/{id}', [Display::class, 'deletePosition']);
 Route::get('/schedule', [Display::class, 'Display5'])->name('admin.schedule');
 Route::post('/schedule/store', [Display::class, 'addSchedule'])->name('schedule.store');
 Route::put('/schedule/{schedule_id}', [Display::class, 'updateSchedule'])->name('schedule.update');

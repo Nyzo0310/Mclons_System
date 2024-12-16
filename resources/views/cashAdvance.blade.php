@@ -280,7 +280,7 @@
                 <div class="collapse" id="employeesSubmenu">
                     <ul class="list-unstyled ps-4">
                         <li><a href="{{ route('admin.addEmployeeList') }}">Employee List</a></li>
-                        <li><a href="{{ route('admin.overtime') }}">Overtime</a></li>
+                 
                         <li><a href="{{ route('admin.cashadvance') }}">Cash Advance</a></li>
                         <li><a href="{{ route('admin.schedule') }}">Schedules</a></li>
                     </ul>

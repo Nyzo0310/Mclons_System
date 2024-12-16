@@ -280,7 +280,7 @@
                 <div class="collapse" id="employeesSubmenu">
                     <ul class="list-unstyled ps-4">
                         <li><a href="{{ route('admin.addEmployeeList') }}">Employee List</a></li>
-                        <li><a href="{{ route('admin.overtime') }}">Overtime</a></li>
+                  
                         <li><a href="{{ route('admin.cashadvance') }}">Cash Advance</a></li>
                         <li><a href="{{ route('admin.schedule') }}">Schedules</a></li>
                     </ul>
@@ -357,7 +357,8 @@
                 </div>
                 <div class="modal-body">
                 <form id="addPositionForm" method="POST" action="{{ route('admin.saveposition') }}">
-                    @csrf
+                    <meta name="csrf-token" content="{{ csrf_token() }}">
+
                     <div class="mb-3">
                         <label for="position_name" class="form-label">Position Name</label>
                         <input type="text" class="form-control" id="position_name" name="position_name" required>
@@ -417,6 +418,31 @@ document.addEventListener('DOMContentLoaded', () => {
             editModal.show();
         }
     });
+    document.getElementById('addPositionForm').addEventListener('submit', function (e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+
+    fetch(this.action, {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+        },
+        body: formData,
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire('Success', data.message, 'success').then(() => location.reload());
+            } else {
+                Swal.fire('Error', data.message || 'Failed to add position.', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error', 'An unexpected error occurred.', 'error');
+        });
+});
+
 
     // Submit Edit Form
     document.getElementById('editPositionForm').addEventListener('submit', function (e) {
@@ -453,6 +479,45 @@ document.addEventListener('DOMContentLoaded', () => {
         const modalBackdrops = document.querySelectorAll('.modal-backdrop');
         modalBackdrops.forEach(backdrop => backdrop.remove());
     });
+});
+// Handle Delete Button Click
+document.body.addEventListener('click', (e) => {
+    if (e.target.closest('.btn-delete')) {
+        const button = e.target.closest('.btn-delete');
+        const positionId = button.getAttribute('data-id');
+
+        Swal.fire({
+            title: 'Are you sure?',
+            text: 'This action cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            cancelButtonColor: '#3085d6',
+            confirmButtonText: 'Yes, delete it!',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                fetch(`/position/${positionId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
+                    },
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            Swal.fire('Deleted!', 'Position has been deleted.', 'success').then(() => location.reload());
+                        } else {
+                            Swal.fire('Error', data.message || 'Failed to delete position.', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire('Error', 'An unexpected error occurred.', 'error');
+                    });
+            }
+        });
+    }
 });
 </script>
 
