@@ -36,6 +36,7 @@ Route::get('/payroll/calculate/{employee_id}', [Display::class, 'fetchPayrollDat
 Route::get('/payroll/display8', [Display::class, 'Display8'])->name('payroll.display8');
 Route::post('/payroll/update/{id}', [Display::class, 'updatePayroll'])->name('payroll.update');
 
+Route::get('/report/{id}', [Display::class, 'generateReport'])->name('admin.attendance.report');
 
 
 

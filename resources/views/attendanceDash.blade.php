@@ -209,6 +209,38 @@
         .add-schedule-button {
             margin-bottom: 20px;
         }
+        /* Modal Enhancements */
+.modal-header {
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    color: white;
+}
+
+.modal-body h6 {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+.modal-body hr {
+    margin-top: 0;
+}
+
+#modal-absent-days {
+    max-height: 150px;
+    overflow-y: auto;
+}
+
+#modal-absent-days .list-group-item {
+    background-color: #f8f9fa;
+    border: none;
+    border-bottom: 1px solid #ddd;
+    padding: 5px 10px;
+}
+
+.modal-footer {
+    justify-content: center;
+}
+
+
     </style>
 </head>
 <body>
@@ -267,105 +299,222 @@
   
     </div>
 
-    <!-- Main Content -->
-    <div class="main-content">
-        <h2>Attendance Records</h2>
-        <!-- Add New Schedule Button -->
-        <div class="add-schedule-button d-flex justify-content-between">
+<!-- Main Content -->
+<div class="main-content">
+    <h2>Attendance Records</h2>
+    <!-- Add New Attendance & Manage Holiday Buttons -->
+    <div class="add-schedule-button d-flex justify-content-between mb-3">
         <a href="{{ route('admin.attendance') }}" class="btn btn-primary">
             <i class="fas fa-plus" style="margin-right: 8px;"></i> Add New Attendance
         </a>
-        <!-- Button to Go to Holiday Page -->
         <a href="{{ route('admin.holiday') }}" class="btn btn-secondary">
             <i class="fas fa-calendar" style="margin-right: 8px;"></i> Manage Holidays
         </a>
     </div>
-        <div class="card-wrapper">
-            <div class="table-responsive">
-                <table class="table table-striped table-hover table-bordered align-middle">
-                    <thead class="table-primary">
+
+    <!-- Attendance Table -->
+    <div class="card-wrapper">
+        <div class="table-responsive">
+            <table class="table table-striped table-hover table-bordered align-middle">
+                <thead class="table-primary">
+                    <tr>
+                        <th>Employee ID</th>
+                        <th>Name</th>
+                        <th>Time In</th>
+                        <th>Time Out</th>
+                        <th>Total Hours</th>
+                        <th>Total Overtime</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach ($attendances as $attendance)
                         <tr>
-                            <th>Employee ID</th>
-                            <th>Name</th>
-                            <th>Time In</th>
-                            <th>Time Out</th>
-                            <th>Action</th>
+                            <td>{{ $attendance->employee_id }}</td>
+                            <td>{{ optional($attendance->employee)->first_name . ' ' . optional($attendance->employee)->last_name }}</td>
+                            <td>{{ $attendance->check_in_time }}</td>
+                            <td>{{ $attendance->check_out_time ?? 'N/A' }}</td>
+                            <td>
+                                @if($attendance->check_out_time)
+                                    {{ gmdate("H:i", strtotime($attendance->check_out_time) - strtotime($attendance->check_in_time)) }}
+                                @else
+                                    N/A
+                                @endif
+                            </td>
+                            <td> {{ number_format($attendance->overtime_hours, 2) }} <!-- Display Overtime --></td>
+                            <td>
+                         <button class="btn btn-info btn-sm view-report-btn" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#reportModal" 
+                            data-employee-id="{{ $attendance->employee_id }}"
+                            data-employee-name="{{ optional($attendance->employee)->first_name . ' ' . optional($attendance->employee)->last_name }}">
+                            <i class="fas fa-print"></i> View Report
+                        </button>
+
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @forelse ($attendances as $attendance)
-                            <tr>
-                                <td>{{ $attendance->employee_id }}</td>
-                                <td>{{ optional($attendance->employee)->first_name . ' ' . optional($attendance->employee)->last_name }}</td>
-                                <td>{{ $attendance->check_in_time }}</td>
-                                <td>{{ $attendance->check_out_time ?? 'N/A' }}</td>
-                                <td>
-                                    <button class="btn btn-success btn-sm me-1">
-                                        <i class="fas fa-edit"></i> Edit
-                                    </button>
-                                    <button class="btn btn-danger btn-sm">
-                                        <i class="fas fa-trash-alt"></i> Delete
-                                    </button>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="6" class="text-center">No attendance records found.</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+<!-- Report Modal -->
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="reportModalLabel">
+                    <i class="fas fa-user-circle me-2"></i> Employee Attendance Report
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Employee Information -->
+                <div class="mb-3">
+                    <h6 class="text-secondary">Employee Information</h6>
+                    <hr>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Employee ID:</strong> <span id="modal-employee-id" class="text-primary"></span></p>
+                            <p><strong>Employee Name:</strong> <span id="modal-employee-name"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Total Present:</strong> <span id="modal-total-present" class="text-success"></span></p>
+                            <p><strong>Total Absent:</strong> <span id="modal-total-absent" class="text-danger"></span></p>
+                            <p><strong>Total Late Check-ins:</strong> <span id="modal-total-late" class="text-warning"></span></p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Absent Days -->
+                <div>
+                    <h6 class="text-secondary">Absent Days</h6>
+                    <hr>
+                    <div class="p-2 bg-light rounded">
+                        <ul id="modal-absent-days" class="list-group list-group-flush"></ul>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Close
+                    </button>
+                    <button type="button" class="btn btn-primary" onclick="printModal()">
+                        <i class="fas fa-print me-1"></i> Print Report
+                    </button>
+                </div>
+                
+                
             </div>
         </div>
     </div>
+</div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // Enable Pusher Logging for Debugging
-        Pusher.logToConsole = true;
-    
-        // Initialize Pusher
-        const pusher = new Pusher('{{ config("broadcasting.connections.pusher.key") }}', {
-            cluster: '{{ config("broadcasting.connections.pusher.options.cluster") }}',
-            encrypted: true,
+
+<!-- Chart.js library -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+<!-- JavaScript -->
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const modal = new bootstrap.Modal(document.getElementById('reportModal'));
+    const viewButtons = document.querySelectorAll('.view-report-btn');
+
+    viewButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            const employeeId = button.getAttribute('data-employee-id');
+            const employeeName = button.getAttribute('data-employee-name');
+
+            // Reset modal content
+            document.getElementById('modal-employee-id').textContent = employeeId;
+            document.getElementById('modal-employee-name').textContent = employeeName;
+            document.getElementById('modal-total-present').textContent = 'Loading...';
+            document.getElementById('modal-total-absent').textContent = 'Loading...';
+            document.getElementById('modal-total-late').textContent = 'Loading...';
+            document.getElementById('modal-absent-days').innerHTML = '';
+
+            // Fetch the report data via AJAX
+            fetch(`/report/${employeeId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('modal-total-present').textContent = data.total_present || 0;
+                    document.getElementById('modal-total-absent').textContent = data.total_absent || 0;
+                    document.getElementById('modal-total-late').textContent = data.total_late || 0;
+
+                    const absentDaysList = document.getElementById('modal-absent-days');
+                    absentDaysList.innerHTML = ''; // Clear previous content
+                    data.absent_days.forEach(day => {
+                        const li = document.createElement('li');
+                        li.textContent = day;
+                        li.classList.add('list-group-item');
+                        absentDaysList.appendChild(li);
+                    });
+
+                    modal.show();
+                })
+                .catch(error => {
+                    console.error('Error fetching report:', error);
+                    alert('Failed to load report. Please try again.');
+                });
         });
-    
-        // Subscribe to the Attendance Channel
-        const channel = pusher.subscribe('attendance');
-    
-        // Listen for AttendanceUpdated Event
-        channel.bind('App\\Events\\AttendanceUpdated', function(data) {
-            console.log('Real-time data:', data);
-    
-            // Update Table in Real-Time
-            const tableBody = document.querySelector('table tbody');
-    
-            const row = `
-                <tr id="row-${data.id}">
-                    <td>${data.employee_id}</td>
-                    <td>${data.name}</td>
-                    <td>${data.check_in_time}</td>
-                    <td>${data.check_out_time}</td>
-                    <td>
-                        <button class="btn btn-success btn-sm me-1">
-                            <i class="fas fa-edit"></i> Edit
-                        </button>
-                        <button class="btn btn-danger btn-sm">
-                            <i class="fas fa-trash-alt"></i> Delete
-                        </button>
-                    </td>
-                </tr>
-            `;
-    
-            // If the row exists, replace it; otherwise, append it
-            const existingRow = document.querySelector(`#row-${data.id}`);
-            if (existingRow) {
-                existingRow.outerHTML = row;
-            } else {
-                tableBody.insertAdjacentHTML('beforeend', row);
-            }
-        });
-    </script>
+    });
+});
+function printModal() {
+    const printContents = document.querySelector('.modal-body').innerHTML; // Only modal body content
+    const originalTitle = document.title; // Store the current page title
+
+    // Open a new window for printing
+    const printWindow = window.open('', '', 'height=600, width=800');
+    printWindow.document.write(`
+        <html>
+            <head>
+                <title>${originalTitle}</title>
+                <style>
+                    body {
+                        font-family: Arial, sans-serif;
+                        margin: 20px;
+                        color: #333;
+                    }
+                    h1, h2, h3, h4, h5, h6 {
+                        margin-top: 0;
+                        text-align: center;
+                    }
+                    .print-container {
+                        width: 100%;
+                        margin: 0 auto;
+                        border: 1px solid #ccc;
+                        padding: 20px;
+                        border-radius: 8px;
+                    }
+                    ul {
+                        list-style-type: none;
+                        padding: 0;
+                    }
+                    ul li {
+                        padding: 5px;
+                        border-bottom: 1px solid #ddd;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="print-container">
+                    <h2>Employee Attendance Report</h2>
+                    ${printContents}
+                </div>
+            </body>
+        </html>
+    `);
+    printWindow.document.close(); // Close the document to finish rendering
+    printWindow.focus(); // Focus on the new window
+    printWindow.print(); // Trigger print
+    printWindow.close(); // Close the window after printing
+}
+
+
+</script>
+
 </body>
+
 </html>

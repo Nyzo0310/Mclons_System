@@ -266,25 +266,26 @@
                 <td>{{ number_format($employee['net_salary'], 2) }}</td>
                 <td>
                     <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#payslipModal" 
-                    data-name="{{ $employee['name'] }}" 
-                    data-id="{{ $employee['employee_id'] }}"
-                    data-position="{{ $employee['position_name'] }}"
-                    data-regular="{{ number_format($employee['regular_pay'], 2) }}"
-                    data-overtime="{{ number_format($employee['overtime_pay'], 2) }}"
-                    data-holiday="{{ number_format($employee['holiday_pay'], 2) }}"
-                    data-nightot="{{ number_format($employee['extra_2to4_pay'], 2) }}"
-                    data-gross="{{ number_format($employee['gross_salary'], 2) }}"
-                    data-cashadvance="{{ number_format($employee['cash_advance'], 2) }}"
-                    data-deduction-name="{{ $employee['deduction_name'] }}"
-                    data-deductions="{{ number_format($employee['deductions'], 2) }}"
-                    data-total-deductions="{{ number_format($employee['total_deductions'], 2) }}"
-                    data-netpay="{{ number_format($employee['net_salary'], 2) }}">
-                    View Payslip
-                </button>
+                        data-name="{{ $employee['name'] }}" 
+                        data-id="{{ $employee['employee_id'] }}"
+                        data-position="{{ $employee['position_name'] }}"
+                        data-regular="{{ number_format($employee['regular_pay'], 2) }}"
+                        data-overtime="{{ number_format($employee['overtime_pay'], 2) }}"
+                        data-holiday="{{ number_format($employee['holiday_pay'], 2) }}"
+                        data-nightot="{{ number_format($employee['extra_2to4_pay'], 2) }}"
+                        data-gross="{{ number_format($employee['gross_salary'], 2) }}"
+                        data-cashadvance="{{ number_format($employee['cash_advance'], 2) }}"
+                        data-deduction-name="{{ $employee['deduction_name'] }}"
+                        data-deductions="{{ number_format($employee['deductions'], 2) }}"
+                        data-total-deductions="{{ number_format($employee['total_deductions'], 2) }}"
+                        data-netpay="{{ number_format($employee['net_salary'], 2) }}">
+                        View Payslip
+                    </button>
                 </td>
             </tr>
             @endforeach
         </tbody>
+        
     </table>
 </div>
 <!-- Payslip Modal -->

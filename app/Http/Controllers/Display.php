@@ -41,15 +41,26 @@ class Display extends Controller
     }
     public function Display8()
     {
+        $currentDate = Carbon::now();
+    
+        // Determine payroll period (1st-15th or 16th-end of month)
+        $startDate = $currentDate->day <= 15 
+                     ? $currentDate->copy()->startOfMonth()
+                     : $currentDate->copy()->startOfMonth()->addDays(15);
+    
+        $endDate = $currentDate->day <= 15 
+                   ? $startDate->copy()->addDays(14)
+                   : $startDate->copy()->endOfMonth();
+    
         $employees = Employee::with(['position', 'deduction'])
             ->get()
-            ->map(function ($employee) {
-                // Fetch the detailed payroll breakdown
-                $payroll = $this->calculatePayroll($employee->employee_id) ?? [
+            ->map(function ($employee) use ($startDate, $endDate) {
+                // Fetch the detailed payroll breakdown for the period
+                $payroll = $this->calculatePayroll($employee->employee_id, $startDate, $endDate) ?? [
                     'regular_pay' => 0,
                     'overtime_pay' => 0,
                     'holiday_pay' => 0,
-                    'extra_2to4_pay' => 0, // 2-4 AM Pay
+                    'extra_2to4_pay' => 0,
                     'gross_salary' => 0,
                     'cash_advance' => 0,
                     'net_salary' => 0,
@@ -58,8 +69,6 @@ class Display extends Controller
                 // Deduction details
                 $deductionAmount = $employee->deduction->amount ?? 0;
                 $deductionName = $employee->deduction->name ?? 'None';
-    
-                // Total deductions: includes deduction and cash advance
                 $totalDeductions = $deductionAmount + ($payroll['cash_advance'] ?? 0);
     
                 return [
@@ -69,21 +78,21 @@ class Display extends Controller
                     'regular_pay'       => round($payroll['regular_pay'], 2),
                     'overtime_pay'      => round($payroll['overtime_pay'], 2),
                     'holiday_pay'       => round($payroll['holiday_pay'], 2),
-                    'extra_2to4_pay'    => round($payroll['extra_2to4_pay'], 2), // Ensure this is included
+                    'extra_2to4_pay'    => round($payroll['extra_2to4_pay'], 2),
                     'gross_salary'      => round($payroll['gross_salary'], 2),
                     'cash_advance'      => round($payroll['cash_advance'], 2),
                     'deduction_name'    => $deductionName,
                     'deductions'        => round($deductionAmount, 2),
                     'total_deductions'  => round($totalDeductions, 2),
                     'net_salary'        => round($payroll['net_salary'], 2),
+                    'start_date'        => $startDate->toDateString(),
+                    'end_date'          => $endDate->toDateString(),
                 ];
             });
     
-        // Log data for debugging 2-4 AM Pay
-        logger("Payroll Data with 2-4 AM Pay: ", $employees->toArray());
-    
         return view('payroll', ['employees' => $employees]);
     }
+    
     
     
     public function Display7()
@@ -344,13 +353,122 @@ public function destroy($id)
     }
     
     
-    
-
     public function Display1()
-    {
-        $attendances = Attendance::all();
-        return view('attendanceDash', compact('attendances'));
+{
+    $startDate = Carbon::now()->startOfMonth(); // Start of the current month
+    $endDate = Carbon::now()->endOfMonth();     // End of the current month
+    $employees = Employee::all();
+
+    $attendanceData = [];
+    $attendances = Attendance::with('employee') // Include employee relationship
+        ->whereBetween('check_in_time', [$startDate, $endDate])
+        ->get()
+        ->map(function ($attendance) {
+            // Ensure check-out time exists
+            if ($attendance->check_out_time) {
+                $hoursWorked = Carbon::parse($attendance->check_in_time)
+                    ->diffInHours(Carbon::parse($attendance->check_out_time));
+
+                // Calculate overtime (anything beyond 8 hours)
+                $attendance->overtime_hours = $hoursWorked > 8 ? $hoursWorked - 8 : 0;
+            } else {
+                $attendance->overtime_hours = 0; // No check-out, no overtime
+            }
+
+            return $attendance;
+        });
+
+    foreach ($employees as $employee) {
+        // Step 1: Get all working days (e.g., Mon-Fri)
+        $workingDays = [];
+        for ($date = $startDate->copy(); $date <= $endDate; $date->addDay()) {
+            if (!$date->isWeekend()) {
+                $workingDays[] = $date->toDateString();
+            }
+        }
+
+        // Step 2: Fetch attendance records for the current month
+        $presentDays = Attendance::where('employee_id', $employee->id)
+            ->whereBetween('check_in_time', [$startDate, $endDate])
+            ->pluck('check_in_time')
+            ->map(fn($date) => Carbon::parse($date)->toDateString())
+            ->toArray();
+
+        // Step 3: Compare working days with attendance records to find absent days
+        $absentDays = array_diff($workingDays, $presentDays);
+
+        $attendanceData[] = [
+            'employee' => $employee,
+            'total_present' => count($presentDays),
+            'total_absent' => count($absentDays),
+            'absent_days' => $absentDays,
+        ];
     }
+
+    // Pass both $attendances and $attendanceData
+    return view('attendanceDash', compact('attendances', 'attendanceData'));
+}
+
+    public function generateReport($id)
+    {
+        try {
+            $startDate = Carbon::now()->startOfMonth();
+            $endDate = Carbon::now()->endOfMonth();
+    
+            // Step 1: Fetch all attendance records for this employee
+            $attendanceRecords = Attendance::where('employee_id', $id)
+                ->whereBetween('check_in_time', [$startDate, $endDate])
+                ->get();
+    
+            // Step 2: Calculate Present and Absent Days
+            $presentDays = $attendanceRecords->pluck('check_in_time')
+                ->map(fn($date) => Carbon::parse($date)->toDateString())
+                ->toArray();
+    
+            $workingDays = [];
+            for ($date = $startDate->copy(); $date <= $endDate; $date->addDay()) {
+                if (!$date->isWeekend()) {
+                    $workingDays[] = $date->toDateString();
+                }
+            }
+    
+            $absentDays = array_diff($workingDays, $presentDays);
+    
+            // Step 3: Calculate Total Late Check-ins
+            $expectedStartTime = "08:00:00";
+            $lateCheckIns = $attendanceRecords->filter(function ($attendance) use ($expectedStartTime) {
+                $checkIn = Carbon::parse($attendance->check_in_time);
+                return $checkIn->format('H:i:s') > $expectedStartTime;
+            })->count();
+    
+            // Step 4: Calculate Total Overtime
+            $totalOvertime = 0;
+            foreach ($attendanceRecords as $attendance) {
+                if ($attendance->check_out_time) {
+                    $hoursWorked = Carbon::parse($attendance->check_in_time)
+                        ->diffInHours(Carbon::parse($attendance->check_out_time));
+    
+                    if ($hoursWorked > 8) {
+                        $totalOvertime += $hoursWorked - 8; // Calculate overtime hours
+                    }
+                }
+            }
+    
+            // Step 5: Return JSON Response
+            return response()->json([
+                'total_present' => count($presentDays),
+                'total_absent' => count($absentDays),
+                'absent_days' => array_values($absentDays),
+                'total_late' => $lateCheckIns,
+                'total_overtime' => $totalOvertime // Include total overtime
+            ]);
+    
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    
+    
 
     public function Display()
     {
@@ -641,7 +759,7 @@ public function add(Request $request)
 
     public function Submit(Request $data)
     {
-        // Validate incoming request
+        // Validate input
         $validated = $data->validate([
             'employee_id' => 'required|integer',
             'attendancestatus' => 'required|in:timein,timeout',
@@ -650,67 +768,94 @@ public function add(Request $request)
     
         $employeeId = $validated['employee_id'];
         $attendanceStatus = $validated['attendancestatus'];
+        $checkInTime = Carbon::parse($validated['check_in_time']); // Submitted check-in/check-out time
     
-        // Check if employee exists
+        // Fetch employee and schedule
         $employee = Employee::with('schedule')->find($employeeId);
         if (!$employee) {
             return back()->with('error', 'Employee not found!');
         }
     
-        // Check if the employee has a schedule
         if (!$employee->schedule) {
-            return back()->with('error', 'Attendance not allowed: Employee has no assigned schedule!');
+            return back()->with('error', 'No schedule assigned for this employee!');
         }
     
-        // Adjust check-in time based on the 15-minute rule
-        $checkInTime = Carbon::parse($validated['check_in_time']);
-        $minute = $checkInTime->minute;
+        // Schedule details
+        $rawCheckInTime = $employee->schedule->check_in_time; // Scheduled start
+        $rawCheckOutTime = $employee->schedule->check_out_time; // Scheduled end
     
-        if ($minute >= 45 || $minute <= 15) {
-            // Round to the nearest hour
-            $adjustedTime = $minute >= 45
-                ? $checkInTime->copy()->ceilHour()
-                : $checkInTime->copy()->floorHour();
-        } else {
-            // Keep the exact time if between 16 and 44 minutes
-            $adjustedTime = $checkInTime;
+        // Determine schedule start and end times
+        $scheduleStart = Carbon::parse($rawCheckInTime)->setDate($checkInTime->year, $checkInTime->month, $checkInTime->day);
+        $scheduleEnd = Carbon::parse($rawCheckOutTime)->setDate($checkInTime->year, $checkInTime->month, $checkInTime->day);
+    
+        // If it's an overnight shift, adjust check-out time to the next day
+        if ($scheduleEnd <= $scheduleStart) {
+            $scheduleEnd->addDay();
         }
     
-        // Check for a holiday on the current date
-        $holiday = Holiday::whereDate('holiday_date', $adjustedTime->toDateString())->first();
-        $holidayId = $holiday ? $holiday->holiday_id : null;
+        // Early check-in restriction
+        $earliestAllowedCheckIn = $scheduleStart->copy()->subHour(); // 1 hour before schedule start
     
-        // Check if attendance already exists for the employee on the same day
-        $attendance = Attendance::where('employee_id', $employeeId)
-            ->whereDate('check_in_time', $adjustedTime->toDateString())
-            ->first();
+        if ($attendanceStatus === 'timein') {
+            // Debugging logs
+            Log::info("Check-in Time: {$checkInTime}");
+            Log::info("Schedule Start: {$scheduleStart}, Earliest Allowed: {$earliestAllowedCheckIn}");
     
-        if ($attendance) {
-            // Handle Time Out scenario
-            if ($attendanceStatus === 'timeout') {
-                $attendance->update([
-                    'check_out_time' => now()->toTimeString(),
-                ]);
-                return back()->with('success', 'Time Out recorded successfully!');
-            } else {
-                // Time In already exists
-                return back()->with('error', 'Time In already exists for this employee on this date!');
+            // Check for early check-in
+            if ($checkInTime->lt($earliestAllowedCheckIn)) {
+                return back()->with('error', 'Check-in denied: Too early! You can only check in 1 hour before your scheduled time.');
             }
-        } else {
-            // Handle Time In scenario
-            if ($attendanceStatus === 'timein') {
-                Attendance::create([
-                    'employee_id' => $employeeId,
-                    'check_in_time' => $adjustedTime,
-                    'check_out_time' => null,
-                    'holiday_id' => $holidayId, // Store holiday_id if it's a holiday
-                ]);
-                return back()->with('success', 'Time In recorded successfully!');
-            } else {
-                return back()->with('error', 'No Time In record found to Time Out!');
+    
+            // Check if employee is late (10-minute threshold)
+            $lateThreshold = $scheduleStart->copy()->addMinutes(10);
+            $status = $checkInTime->greaterThan($lateThreshold) ? 'Late' : 'On-Time';
+    
+            // Prevent duplicate check-in
+            $attendance = Attendance::where('employee_id', $employeeId)
+                ->whereDate('check_in_time', $scheduleStart->toDateString())
+                ->first();
+    
+            if ($attendance) {
+                return back()->with('error', 'You already checked in for today!');
             }
+    
+            // Save check-in with status
+            Attendance::create([
+                'employee_id' => $employeeId,
+                'check_in_time' => $checkInTime,
+                'check_out_time' => null,
+                'status' => $status,
+            ]);
+    
+            return back()->with('success', "Time In recorded successfully! Status: {$status}");
         }
+    
+        // Handle check-out
+        if ($attendanceStatus === 'timeout') {
+            // Find existing attendance record for today
+            $attendance = Attendance::where('employee_id', $employeeId)
+                ->whereDate('check_in_time', $checkInTime->toDateString())
+                ->first();
+    
+            if (!$attendance) {
+                return back()->with('error', 'Cannot check out without checking in first!');
+            }
+    
+            if ($attendance->check_out_time) {
+                return back()->with('error', 'You have already checked out for today!');
+            }
+    
+            // Save check-out time
+            $attendance->update([
+                'check_out_time' => $checkInTime,
+            ]);
+    
+            return back()->with('success', 'Time Out recorded successfully!');
+        }
+    
+        return back()->with('error', 'Invalid attendance status.');
     }
+    
     
 
     public function updateEmployee(Request $request, $id)
@@ -849,33 +994,34 @@ public function add(Request $request)
         }
     }
 
-    public function calculatePayroll($employee_id, $start_date = null, $end_date = null)
-{
-    $employee = Employee::with('position')->find($employee_id);
-    if (!$employee || !$employee->position) {
-        return null;
-    }
+    public function calculatePayroll($employee_id)
+    {
+        $employee = Employee::with('position')->find($employee_id);
+        if (!$employee || !$employee->position) {
+            return null;
+        }
     
-        // Rate calculations
+        // Rates
         $regularRate = $employee->position->rate_per_hour;
         $overtimeRate = $regularRate * 1.25;
-        $extra2to4AMRate = $regularRate * 1.1; // 10% extra for 2-4 AM
+        $extra2to4AMRate = ($regularRate * 0.1) + $overtimeRate;
     
-         // Rate calculations
-    $regularRate = $employee->position->rate_per_hour;
-    $overtimeRate = $regularRate * 1.25;
-    $extra2to4AMRate = $regularRate * 1.1;
-
-    // Use provided start and end dates; fallback to default weekly range
-    $endDate = $end_date ? Carbon::parse($end_date) : now();
-    $startDate = $start_date ? Carbon::parse($start_date) : $endDate->copy()->startOfWeek();
-
-    // Attendance data
-    $attendances = Attendance::where('employee_id', $employee_id)
-        ->whereBetween('check_in_time', [$startDate, $endDate])
-        ->whereNotNull('check_in_time')
-        ->whereNotNull('check_out_time')
-        ->get();
+        // Identify current 15-day period
+        $today = Carbon::now();
+        $startDate = $today->day <= 15 
+                     ? $today->copy()->startOfMonth() // Start of the month
+                     : $today->copy()->startOfMonth()->addDays(15); // Start from the 16th
+    
+        $endDate = $today->day <= 15 
+                   ? $startDate->copy()->addDays(14) // 1st to 15th
+                   : $startDate->copy()->endOfMonth(); // 16th to end of the month
+    
+        // Attendance data
+        $attendances = Attendance::where('employee_id', $employee_id)
+            ->whereBetween('check_in_time', [$startDate, $endDate])
+            ->whereNotNull('check_in_time')
+            ->whereNotNull('check_out_time')
+            ->get();
     
         // Totals
         $totalRegularPay = 0;
@@ -966,5 +1112,4 @@ public function add(Request $request)
             'end_date' => $endDate->toDateString(),
         ];
     }
-    
 }    
