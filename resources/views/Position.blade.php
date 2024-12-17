@@ -237,16 +237,9 @@
                 <i class="fas fa-bars"></i>
             </button>
         </div>
-        <div class="username">
-            <i class="fas fa-user-circle"></i>
-            @auth
-                <span>{{ Auth::user()->username }}</span>
-            @else
-                <span>Guest</span>
-            @endauth
-        </div>
+       
     </nav>
-
+   
     <!-- Offcanvas Sidebar -->
     <div class="offcanvas offcanvas-start" id="offcanvasMenu">
         <div class="offcanvas-header">
@@ -255,22 +248,9 @@
         </div>
         <div class="offcanvas-body">
             <div class="sidebar">
-                <!-- User Info -->
-                <div class="user-info text-center mb-4">
-                    @auth
-                        <img src="{{ asset('path_to_user_icon.png') }}" alt="User Icon" class="rounded-circle" width="70">
-                        <h5 class="mt-2">{{ Auth::user()->username }}</h5>
-                        <span><i class="fas fa-circle text-success"></i> Online</span>
-                    @else
-                        <img src="{{ asset('path_to_guest_icon.png') }}" alt="Guest Icon" class="rounded-circle" width="70">
-                        <h5 class="mt-2">Guest</h5>
-                        <span><i class="fas fa-circle text-secondary"></i> Offline</span>
-                    @endauth
-                </div>
-
                 <div class="sidebar-section">Reports</div>
                 <a href="{{ route('admin.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-
+        
                 <div class="sidebar-section">Manage</div>
                 <a href="{{ route('admin.attendanceDash') }}"><i class="fas fa-calendar-check"></i> Attendance</a>
                 <a href="#employeesSubmenu" data-bs-toggle="collapse" class="d-flex align-items-center">
@@ -280,19 +260,28 @@
                 <div class="collapse" id="employeesSubmenu">
                     <ul class="list-unstyled ps-4">
                         <li><a href="{{ route('admin.addEmployeeList') }}">Employee List</a></li>
-                  
                         <li><a href="{{ route('admin.cashadvance') }}">Cash Advance</a></li>
                         <li><a href="{{ route('admin.schedule') }}">Schedules</a></li>
                     </ul>
                 </div>
-
+        
                 <a href="{{ route('admin.deduction') }}"><i class="fas fa-dollar-sign"></i> Deductions</a>
                 <a href="{{ route('admin.position') }}"><i class="fas fa-briefcase"></i> Positions</a>
-
+        
                 <div class="sidebar-section">Printables</div>
                 <a href="{{ route('admin.payroll') }}"><i class="fas fa-print"></i> Payroll</a>
+        
+                <!-- Logout Section -->
+                <div class="sidebar-section">Account</div>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-link text-danger text-decoration-none d-flex align-items-center">
+                        <i class="fas fa-sign-out-alt"></i> <span class="ms-2">Log Out</span>
+                    </button>
+                </form>
             </div>
         </div>
+  
     </div>
 
     <div class="container main-content">

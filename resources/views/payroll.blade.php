@@ -27,64 +27,43 @@
         }
 
         .main-content {
-            max-width: 1200px;
-            margin: 60px auto 20px; /* Adds spacing at the top and bottom */
-            padding: 20px;
-            background: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        }
+        max-width: 95%;
+        margin: 40px auto 20px;
+        padding: 20px;
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        overflow-x: auto; /* Enables horizontal scroll for large tables */
+    }
 
-        .controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-        }
+    /* Table Styles */
+    .table-wrapper {
+        overflow-x: auto; /* Ensures table scrolls horizontally on small screens */
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        background-color: #ffffff;
+    }
 
-        .controls .btn {
-            margin-left: 10px;
-        }
+    .table thead th {
+        background: linear-gradient(90deg, #007bff, #0056b3);
+        color: white;
+        font-weight: bold;
+        text-align: center;
+        white-space: nowrap;
+    }
 
-        .controls .date-picker {
-            display: flex;
-            align-items: center;
-        }
+    .table tbody td {
+        text-align: center;
+        vertical-align: middle;
+        font-size: 0.9rem;
+        padding: 8px;
+        white-space: nowrap; /* Prevents text wrapping */
+    }
 
-        /* Table Styles */
-        .table-wrapper {
-            background-color: #ffffff;
-            border-radius: 10px;
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
-            padding: 20px;
-        }
-
-        .table thead th {
-            background: linear-gradient(90deg, #007bff, #0056b3);
-            color: white;
-            font-weight: bold;
-            text-align: center;
-            border-bottom: 2px solid #0056b3;
-            padding: 10px;
-        }
-
-        .table tbody td {
-            vertical-align: middle;
-            text-align: center;
-        }
-
-        .status {
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-
-        .status.active {
-            color: #28a745;
-        }
-
-        .status.inactive {
-            color: #dc3545;
-        }
+    .table th,
+    .table td {
+        border: 1px solid #dee2e6;
+    }
 
        /* Navbar Styles */
        .navbar {
@@ -196,16 +175,9 @@
                 <i class="fas fa-bars"></i>
             </button>
         </div>
-        <div class="username">
-            <i class="fas fa-user-circle"></i>
-            @auth
-                <span>{{ Auth::user()->username }}</span>
-            @else
-                <span>Guest</span>
-            @endauth
-        </div>
+       
     </nav>
-    
+       
     <!-- Offcanvas Sidebar -->
     <div class="offcanvas offcanvas-start" id="offcanvasMenu">
         <div class="offcanvas-header">
@@ -214,22 +186,9 @@
         </div>
         <div class="offcanvas-body">
             <div class="sidebar">
-                <!-- User Info -->
-                <div class="user-info text-center mb-4">
-                    @auth
-                        <img src="{{ asset('path_to_user_icon.png') }}" alt="User Icon" class="rounded-circle" width="70">
-                        <h5 class="mt-2">{{ Auth::user()->username }}</h5>
-                        <span><i class="fas fa-circle text-success"></i> Online</span>
-                    @else
-                        <img src="{{ asset('path_to_guest_icon.png') }}" alt="Guest Icon" class="rounded-circle" width="70">
-                        <h5 class="mt-2">Guest</h5>
-                        <span><i class="fas fa-circle text-secondary"></i> Offline</span>
-                    @endauth
-                </div>
-
                 <div class="sidebar-section">Reports</div>
                 <a href="{{ route('admin.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-
+        
                 <div class="sidebar-section">Manage</div>
                 <a href="{{ route('admin.attendanceDash') }}"><i class="fas fa-calendar-check"></i> Attendance</a>
                 <a href="#employeesSubmenu" data-bs-toggle="collapse" class="d-flex align-items-center">
@@ -239,31 +198,35 @@
                 <div class="collapse" id="employeesSubmenu">
                     <ul class="list-unstyled ps-4">
                         <li><a href="{{ route('admin.addEmployeeList') }}">Employee List</a></li>
-                      
                         <li><a href="{{ route('admin.cashadvance') }}">Cash Advance</a></li>
                         <li><a href="{{ route('admin.schedule') }}">Schedules</a></li>
                     </ul>
                 </div>
-
+        
                 <a href="{{ route('admin.deduction') }}"><i class="fas fa-dollar-sign"></i> Deductions</a>
                 <a href="{{ route('admin.position') }}"><i class="fas fa-briefcase"></i> Positions</a>
-
+        
                 <div class="sidebar-section">Printables</div>
                 <a href="{{ route('admin.payroll') }}"><i class="fas fa-print"></i> Payroll</a>
+        
+                <!-- Logout Section -->
+                <div class="sidebar-section">Account</div>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-link text-danger text-decoration-none d-flex align-items-center">
+                        <i class="fas fa-sign-out-alt"></i> <span class="ms-2">Log Out</span>
+                    </button>
+                </form>
             </div>
         </div>
+  
     </div>
+    
 <!-- Main Content -->
 <div class="main-content">
     <div class="page-title">Payroll</div>
     <div class="controls">
-        <div class="date-picker">
-            <input type="text" class="form-control" placeholder="Select date range">
-            <button class="btn btn-secondary"><i class="fas fa-calendar-alt"></i></button>
-        </div>
-        <div>
-            <button class="btn btn-success"><i class="fas fa-file-alt"></i> Payroll</button>
-        </div>
+        
     </div>
 
 <!-- Table -->
@@ -277,7 +240,7 @@
                 <th>Regular Pay</th>
                 <th>Overtime Pay</th>
                 <th>Holiday Pay</th>
-                <th>Night OverTime Pay</th>
+                <th>Night 2-4 AM Pay</th>
                 <th>Gross Salary</th>
                 <th>Cash Advance</th>
                 <th>Deductions</th>
@@ -324,7 +287,6 @@
         </tbody>
     </table>
 </div>
-
 <!-- Payslip Modal -->
 <div class="modal fade" id="payslipModal" tabindex="-1" aria-labelledby="payslipModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">

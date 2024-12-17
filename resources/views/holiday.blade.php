@@ -137,6 +137,13 @@
                             <input type="text" class="form-control" id="holiday_name" name="description" required>
                         </div>
                         <div class="mb-3">
+                            <label for="holiday_type" class="form-label">Holiday Type</label>
+                            <select id="holiday_type" name="type" class="form-select" required>
+                                <option value="regular">Regular Holiday</option>
+                                <option value="special">Special Holiday</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
                             <label for="holiday_date" class="form-label">Holiday Date</label>
                             <input type="date" class="form-control" id="holiday_date" name="holiday_date" required>
                         </div>
@@ -157,11 +164,98 @@
     <!-- SweetAlert2 JS -->
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11.7.3/dist/sweetalert2.min.js"></script>
     <script>
-    
+    document.addEventListener('DOMContentLoaded', function () {
+    var calendarEl = document.getElementById('calendar');
+
+    var calendar = new FullCalendar.Calendar(calendarEl, {
+        initialView: 'dayGridMonth', // Show month view only
+        headerToolbar: {
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth'
+        },
+        events: @json($holidays ?? []),
+
+        eventClick: function (info) {
+            const currentType = info.event.extendedProps.type || 'regular';
+
+            Swal.fire({
+                title: 'Edit Holiday',
+                html: `
+                    <input type="text" id="edit-title" class="swal2-input" value="${info.event.title}" placeholder="Holiday Name">
+                    <input type="date" id="edit-date" class="swal2-input" value="${info.event.startStr}" placeholder="Holiday Date">
+                    <select id="edit-type" class="swal2-input">
+                        <option value="regular" ${currentType === 'regular' ? 'selected' : ''}>Regular Holiday</option>
+                        <option value="special" ${currentType === 'special' ? 'selected' : ''}>Special Holiday</option>
+                    </select>
+                `,
+                showDenyButton: true,
+                showCancelButton: true,
+                confirmButtonText: 'Save',
+                denyButtonText: 'Delete',
+            }).then((result) => {
+                const newTitle = document.getElementById('edit-title').value;
+                const newDate = document.getElementById('edit-date').value;
+                const newType = document.getElementById('edit-type').value;
+
+                if (result.isConfirmed) {
+                    // Update Request
+                    fetch(`{{ url('/holiday') }}/${info.event.id}`, {
+                        method: 'PUT', // For updates
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        },
+                        body: JSON.stringify({
+                            description: newTitle,
+                            holiday_date: newDate,
+                            type: newType
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            info.event.setProp('title', newTitle);
+                            info.event.setStart(newDate);
+                            info.event.setExtendedProp('type', newType);
+                            Swal.fire('Updated!', 'Holiday updated successfully!', 'success');
+                        } else {
+                            Swal.fire('Error', 'Failed to update holiday.', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire('Error', 'Failed to update holiday.', 'error');
+                    });
+                } else if (result.isDenied) {
+                    // Delete Request
+                    fetch(`{{ url('/holiday') }}/${info.event.id}`, {
+                        method: 'DELETE', // For deletions
+                        headers: {
+                            'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            info.event.remove();
+                            Swal.fire('Deleted!', 'Holiday deleted successfully!', 'success');
+                        } else {
+                            Swal.fire('Error', 'Failed to delete holiday.', 'error');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        Swal.fire('Error', 'Failed to delete holiday.', 'error');
+                    });
+                }
+            });
+        }
+    });
     document.getElementById('submitHoliday').addEventListener('click', function () {
     const formData = new FormData(document.getElementById('addHolidayForm'));
 
-    fetch('{{ route('admin.addHoliday') }}', {
+    fetch(`{{ route('admin.addHoliday') }}`, {
         method: 'POST',
         headers: {
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
@@ -171,133 +265,20 @@
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            Swal.fire('Success', 'Holiday added successfully!', 'success');
-            location.reload(); // Reload to update the calendar
+            Swal.fire('Success', 'Holiday added successfully!', 'success')
+                .then(() => location.reload()); // Reload the calendar
         } else {
-            Swal.fire('Error', 'Failed to add holiday.', 'error');
+            Swal.fire('Error', data.message || 'Failed to add holiday.', 'error');
         }
     })
     .catch(error => {
         console.error('Error:', error);
-        Swal.fire('Error', 'Failed to add holiday.', 'error');
+        Swal.fire('Error', 'An unexpected error occurred.', 'error');
     });
 });
-
-
-
-    document.addEventListener('DOMContentLoaded', function () {
-    var calendarEl = document.getElementById('calendar');
-
-    console.log("Holidays data:", @json($holidays ?? []));
-
-    var calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth',
-        headerToolbar: {
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,timeGridWeek'
-        },
-        events: @json($holidays ?? []),
-
-        eventClick: function (info) {
-    if (!info.event.id) {
-        Swal.fire('Error', 'Event data is incomplete.', 'error');
-        return;
-    }
-
-    Swal.fire({
-        title: 'Event Action',
-        text: `You clicked on "${info.event.title}".`,
-        icon: 'info',
-        showDenyButton: true,
-        showCancelButton: true,
-        confirmButtonText: 'Edit',
-        denyButtonText: 'Delete',
-    }).then((result) => {
-        if (result.isConfirmed) {
-            // Edit Holiday
-            Swal.fire({
-                title: 'Edit Holiday',
-                html:
-                    `<input type="text" id="edit-title" class="swal2-input" value="${info.event.title}" placeholder="Holiday Name">` +
-                    `<input type="date" id="edit-date" class="swal2-input" value="${info.event.startStr}" placeholder="Holiday Date">`,
-                showCancelButton: true,
-                confirmButtonText: 'Save',
-            }).then((editResult) => {
-                if (editResult.isConfirmed) {
-                    const newTitle = document.getElementById('edit-title').value;
-                    const newDate = document.getElementById('edit-date').value;
-
-                    fetch(`{{ url('/holiday') }}/${info.event.id}`, { // Use 'id' directly here
-    method: 'PUT',
-    headers: {
-        'Content-Type': 'application/json',
-        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-    },
-    body: JSON.stringify({
-        description: newTitle, // Corrected variable name
-        holiday_date: newDate
-    })
-})
-
-
-                        .then((response) => response.json())
-                        .then((data) => {
-                            if (data.success) {
-                                info.event.setProp('title', newTitle);
-                                info.event.setStart(newDate);
-                                Swal.fire('Updated!', 'Holiday updated successfully!', 'success');
-                            } else {
-                                Swal.fire('Error', data.message, 'error');
-                            }
-                        })
-                        .catch((error) => {
-                            console.error('Error:', error);
-                            Swal.fire('Error', 'Failed to update holiday.', 'error');
-                        });
-                }
-            });
-        } else if (result.isDenied) {
-            // Delete Holiday
-            Swal.fire({
-                title: 'Confirm Deletion',
-                text: `Are you sure you want to delete "${info.event.title}"?`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonText: 'Yes, delete it',
-            }).then((deleteResult) => {
-                if (deleteResult.isConfirmed) {
-                    fetch(`{{ url('/holiday') }}/${info.event.id}`, { // Use 'id' directly here
-    method: 'DELETE',
-    headers: {
-        'X-CSRF-TOKEN': '{{ csrf_token() }}'
-    }
-})
-
-                        .then((response) => response.json())
-                        .then((data) => {
-                            if (data.success) {
-                                info.event.remove();
-                                Swal.fire('Deleted!', data.message, 'success');
-                            } else {
-                                Swal.fire('Error', data.message, 'error');
-                            }
-                        })
-                        .catch((error) => {
-                            console.error('Error:', error);
-                            Swal.fire('Error', 'Failed to delete holiday.', 'error');
-                        });
-                }
-            });
-        }
-    });
-},
-
-    });
 
     calendar.render();
 });
-
 
     </script>
 </body>

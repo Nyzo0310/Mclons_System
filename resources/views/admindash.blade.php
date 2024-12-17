@@ -21,7 +21,8 @@
             font-weight: 600;
             color: #495057;
             text-align: left; /* Aligns the title to the left */
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+          
         }
 
         /* Navbar Styles */
@@ -131,9 +132,9 @@
         /* Main Content Styles */
         .main-content {
             font-family: 'Georgia', serif;
-            padding: 20px;
-            background-color: #f8f9fa;
-            min-height: 100vh;
+            height: 100vh;
+            padding: 10px;
+            box-sizing: border-box;
         }
 
         /* Card Design Styles */
@@ -145,7 +146,7 @@
             color: white;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             position: relative;
-            height: 150px;
+            height: 150px; 
             box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
         }
 
@@ -209,6 +210,9 @@
             transform: rotate(90deg);
             transition: transform 0.3s ease;
         }
+        canvas {
+    max-height: 95%;
+}
     </style>
 </head>
 <body>
@@ -235,23 +239,9 @@
             <i class="fas fa-bars"></i>
         </button>
     </div>
-    <div class="username">
-        <i class="fas fa-user-circle"></i>
-        @auth
-            <span>{{ Auth::user()->username }}</span>  <!-- Display username -->
-            <form action="{{ route('logout') }}" method="POST" style="display:inline;">
-                @csrf
-                <button type="submit" class="btn btn-danger btn-sm ms-3">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </button>
-            </form>
-        @else
-            <span>Guest</span>
-        @endauth
-    </div>
+    
 </nav>
-
-
+   
     <!-- Offcanvas Sidebar -->
     <div class="offcanvas offcanvas-start" id="offcanvasMenu">
         <div class="offcanvas-header">
@@ -260,23 +250,9 @@
         </div>
         <div class="offcanvas-body">
             <div class="sidebar">
-                <!-- User Info -->
-                <div class="user-info text-center mb-4">
-    @auth
-        <img src="{{ asset('path_to_user_icon.png') }}" alt="User Icon" class="rounded-circle" width="70">
-        <h5>{{ Auth::user()->username }}</h5>  <!-- Display username here -->
-        <span><i class="fas fa-circle text-success"></i> Online</span>
-    @else
-        <img src="{{ asset('path_to_guest_icon.png') }}" alt="Guest Icon" class="rounded-circle" width="70">
-        <h5>Guest</h5>
-        <span><i class="fas fa-circle text-secondary"></i> Offline</span>
-    @endauth
-    
-</div>
-
                 <div class="sidebar-section">Reports</div>
                 <a href="{{ route('admin.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-
+        
                 <div class="sidebar-section">Manage</div>
                 <a href="{{ route('admin.attendanceDash') }}"><i class="fas fa-calendar-check"></i> Attendance</a>
                 <a href="#employeesSubmenu" data-bs-toggle="collapse" class="d-flex align-items-center">
@@ -285,96 +261,90 @@
                 </a>
                 <div class="collapse" id="employeesSubmenu">
                     <ul class="list-unstyled ps-4">
-                    <li><a href="{{ route('admin.addEmployeeList') }}">Employee List</a></li>
-                        
+                        <li><a href="{{ route('admin.addEmployeeList') }}">Employee List</a></li>
                         <li><a href="{{ route('admin.cashadvance') }}">Cash Advance</a></li>
                         <li><a href="{{ route('admin.schedule') }}">Schedules</a></li>
                     </ul>
                 </div>
-
+        
                 <a href="{{ route('admin.deduction') }}"><i class="fas fa-dollar-sign"></i> Deductions</a>
                 <a href="{{ route('admin.position') }}"><i class="fas fa-briefcase"></i> Positions</a>
-
+        
                 <div class="sidebar-section">Printables</div>
                 <a href="{{ route('admin.payroll') }}"><i class="fas fa-print"></i> Payroll</a>
-                </div>
+        
+                <!-- Logout Section -->
+                <div class="sidebar-section">Account</div>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-link text-danger text-decoration-none d-flex align-items-center">
+                        <i class="fas fa-sign-out-alt"></i> <span class="ms-2">Log Out</span>
+                    </button>
+                </form>
             </div>
         </div>
+  
+        </div>
 <!-- Main Content -->
-<div class="main-content">
+<div class="main-content" style="height: 100vh; overflow: hidden;">
     <h2>Dashboard</h2>
     <!-- KPI Cards -->
     <div class="row g-3 kpi-cards">
         <div class="col-md-3">
-            <div class="card bg-blue">
+            <div class="card bg-blue h-100">
                 <div class="card-content">
-                    <h3 class="card-title">{{ $totalEmployees }}</h3>
+                    <h3 class="card-title">{{ $totalEmployees ?? '0' }}</h3>
                     <p class="card-text">Total Employees</p>
                 </div>
                 <i class="fas fa-users card-icon"></i>
-                <a href="{{ route('admin.addEmployeeList') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-green">
+            <div class="card bg-green h-100">
                 <div class="card-content">
-                    <h3 class="card-title">{{ number_format($onTimePercentage, 2) }}%</h3>
+                    <h3 class="card-title">{{ number_format($onTimePercentage ?? 0, 2) }}%</h3>
                     <p class="card-text">On Time Percentage</p>
                 </div>
                 <i class="fas fa-chart-pie card-icon"></i>
-                <a href="{{ route('admin.attendance') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-yellow">
+            <div class="card bg-yellow h-100">
                 <div class="card-content">
-                    <h3 class="card-title">{{ $onTimeToday }}</h3>
+                    <h3 class="card-title">{{ $onTimeToday ?? '0' }}</h3>
                     <p class="card-text">On Time Today</p>
                 </div>
                 <i class="fas fa-clock card-icon"></i>
-                <a href="{{ route('admin.attendanceDash') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card bg-red">
+            <div class="card bg-red h-100">
                 <div class="card-content">
-                    <h3 class="card-title">{{ $lateToday }}</h3>
+                    <h3 class="card-title">{{ $lateToday ?? '0' }}</h3>
                     <p class="card-text">Late Today</p>
                 </div>
                 <i class="fas fa-exclamation-triangle card-icon"></i>
-                <a href="{{ route('admin.attendanceDash') }}">More info <i class="fas fa-arrow-circle-right"></i></a>
             </div>
         </div>
     </div>
 
     <!-- Monthly Attendance Report -->
-    <div class="mt-5" style="height: calc(100vh - 200px);">
+    <div class="mt-3" style="height: calc(100vh - 200px);">
         <h4>Monthly Attendance Report</h4>
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <div>
-                <label for="viewSelector" class="form-label">View:</label>
-                <select id="viewSelector" class="form-select" style="width: 200px;">
-                    <option value="current">Current Month</option>
-                    <option value="year">Whole Year</option>
-                </select>
-            </div>
-        </div>
-        <!-- Responsive Full-Width Graph -->
         <div style="width: 100%; height: 100%;">
             <canvas id="attendanceChart"></canvas>
         </div>
     </div>
 </div>
 
+</div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <!-- Chart.js library -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-<!-- Chart.js library -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
 <script>
-    const attendanceDataCurrentMonth = @json($attendanceCountsCurrentMonth);
+    const attendanceDataCurrentMonth = @json($attendanceCountsCurrentMonth ?? []);
 
     // Prepare labels and data for the chart
     const currentDate = new Date();
@@ -383,13 +353,15 @@
     const ontimeDataMonth = new Array(totalDays).fill(0);
     const lateDataMonth = new Array(totalDays).fill(0);
 
-    attendanceDataCurrentMonth.forEach(data => {
-        const dayIndex = parseInt(data.day) - 1; // Adjust for 0-based index
-        if (dayIndex >= 0 && dayIndex < totalDays) {
-            ontimeDataMonth[dayIndex] = data.ontime || 0;
-            lateDataMonth[dayIndex] = data.late || 0;
-        }
-    });
+    if (attendanceDataCurrentMonth.length > 0) {
+        attendanceDataCurrentMonth.forEach(data => {
+            const dayIndex = parseInt(data.day) - 1; // Adjust for 0-based index
+            if (dayIndex >= 0 && dayIndex < totalDays) {
+                ontimeDataMonth[dayIndex] = data.ontime || 0;
+                lateDataMonth[dayIndex] = data.late || 0;
+            }
+        });
+    }
 
     const ctx = document.getElementById('attendanceChart').getContext('2d');
 new Chart(ctx, {
@@ -415,24 +387,21 @@ new Chart(ctx, {
         scales: {
             y: {
                 beginAtZero: true,
-                max: 10, // Set the maximum value of the Y-axis
+                max: 50, // Set maximum value of the Y-axis
                 ticks: {
-                    stepSize: 10, // Set the step size to 10
-                    callback: function(value) {
-                        return value; // Optionally format the Y-axis ticks (e.g., adding '%' symbol)
-                    }
+                    stepSize: 5, // Adjust step size for better readability
                 },
             },
             x: {
                 ticks: {
-                    autoSkip: false, // Ensures all days are displayed on the X-axis
+                    autoSkip: false, // Ensures all labels are displayed
                 },
             },
         },
     },
 });
-
 </script>
+
 
 </body>
 </html>

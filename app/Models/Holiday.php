@@ -11,5 +11,5 @@ class Holiday extends Model
     protected $table = 'holidays'; // Explicit table name
     protected $primaryKey = 'holiday_id'; // Use 'holiday_id' as the primary key
     public $incrementing = true; // Ensure it's auto-incrementing
-    protected $fillable = ['description', 'holiday_date'];
+    protected $fillable = ['description', 'type' ,'holiday_date'];
 }

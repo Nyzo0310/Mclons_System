@@ -181,16 +181,9 @@
                 <i class="fas fa-bars"></i>
             </button>
         </div>
-        <div class="username">
-            <i class="fas fa-user-circle"></i>
-            @auth
-                <span>{{ Auth::user()->username }}</span>
-            @else
-                <span>Guest</span>
-            @endauth
-        </div>
+       
     </nav>
-
+   
     <!-- Offcanvas Sidebar -->
     <div class="offcanvas offcanvas-start" id="offcanvasMenu">
         <div class="offcanvas-header">
@@ -199,22 +192,9 @@
         </div>
         <div class="offcanvas-body">
             <div class="sidebar">
-                <!-- User Info -->
-                <div class="user-info text-center mb-4">
-                    @auth
-                        <img src="{{ asset('path_to_user_icon.png') }}" alt="User Icon" class="rounded-circle" width="70">
-                        <h5 class="mt-2">{{ Auth::user()->username }}</h5>
-                        <span><i class="fas fa-circle text-success"></i> Online</span>
-                    @else
-                        <img src="{{ asset('path_to_guest_icon.png') }}" alt="Guest Icon" class="rounded-circle" width="70">
-                        <h5 class="mt-2">Guest</h5>
-                        <span><i class="fas fa-circle text-secondary"></i> Offline</span>
-                    @endauth
-                </div>
-
                 <div class="sidebar-section">Reports</div>
                 <a href="{{ route('admin.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-
+        
                 <div class="sidebar-section">Manage</div>
                 <a href="{{ route('admin.attendanceDash') }}"><i class="fas fa-calendar-check"></i> Attendance</a>
                 <a href="#employeesSubmenu" data-bs-toggle="collapse" class="d-flex align-items-center">
@@ -224,19 +204,28 @@
                 <div class="collapse" id="employeesSubmenu">
                     <ul class="list-unstyled ps-4">
                         <li><a href="{{ route('admin.addEmployeeList') }}">Employee List</a></li>
-                     
                         <li><a href="{{ route('admin.cashadvance') }}">Cash Advance</a></li>
                         <li><a href="{{ route('admin.schedule') }}">Schedules</a></li>
                     </ul>
                 </div>
-
+        
                 <a href="{{ route('admin.deduction') }}"><i class="fas fa-dollar-sign"></i> Deductions</a>
                 <a href="{{ route('admin.position') }}"><i class="fas fa-briefcase"></i> Positions</a>
-
+        
                 <div class="sidebar-section">Printables</div>
                 <a href="{{ route('admin.payroll') }}"><i class="fas fa-print"></i> Payroll</a>
+        
+                <!-- Logout Section -->
+                <div class="sidebar-section">Account</div>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-link text-danger text-decoration-none d-flex align-items-center">
+                        <i class="fas fa-sign-out-alt"></i> <span class="ms-2">Log Out</span>
+                    </button>
+                </form>
             </div>
         </div>
+  
     </div>
 
     <!-- Main Content -->
@@ -278,15 +267,17 @@
 
                                     <td>
                                         @if($employee->photo)
-                                        <img src="{{ asset('storage/' . $employee->photo) }}" alt="Employee Photo"
-                                                width="50" 
-                                                height="50" 
-                                                class="img-thumbnail" 
-                                                onclick="showPhoto('{{ asset('storage/' . $employee->photo) }}')" />
+                                            <img src="{{ asset('storage/' . $employee->photo) }}" 
+                                                 alt="Employee Photo"
+                                                 class="img-thumbnail" 
+                                                 width="50" height="50"
+                                                 style="cursor: pointer;"
+                                                 onclick="showPhotoModal('{{ asset('storage/' . $employee->photo) }}')">
                                         @else
                                             <span>No Photo</span>
                                         @endif
                                     </td>
+                                    
 
                                     <td>{{ $employee->first_name }}</td>
                                     <td>{{ $employee->last_name }}</td>
@@ -314,21 +305,20 @@
             </div>
         </div>
     </div>
-
-    <!-- Add the modal code here -->
-    <div class="modal fade" id="photoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="photoModal" tabindex="-1" aria-labelledby="photoModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Employee Photo</h5>
+                    <h5 class="modal-title" id="photoModalLabel">Employee Photo</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body text-center">
-                <img id="modalPhoto" src="" alt="Employee Photo" class="img-fluid rounded">
+                    <img id="modalPhotoImage" src="" alt="Employee Photo" class="img-fluid rounded shadow">
                 </div>
             </div>
         </div>
     </div>
+    
 
     <!-- Add Employee Modal -->
     <div class="modal fade" id="addEmployeeModal" tabindex="-1" aria-labelledby="addEmployeeModalLabel" aria-hidden="true">
@@ -495,35 +485,52 @@
     </div>
 </div>
 
+
 <!-- Add Scripts at the End -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
-    function editEmployee(employeeId) {
-        fetch(`/employee/${employeeId}`)
-            .then(response => response.json())
-            .then(data => {
-                // Set form values dynamically
-                document.getElementById('editEmployeeForm').action = `/employee/${employeeId}`;
-                document.getElementById('edit_first_name').value = data.first_name;
-                document.getElementById('edit_last_name').value = data.last_name;
-                document.getElementById('edit_address').value = data.address;
-                document.getElementById('edit_birthdate').value = data.birthdate;
-                document.getElementById('edit_contact_no').value = data.contact_no;
-                document.getElementById('edit_gender').value = data.gender;
-                document.getElementById('edit_position_id').value = data.position_id;
+    
+    function showPhotoModal(photoUrl) {
+    const modalPhotoImage = document.getElementById('modalPhotoImage');
+    modalPhotoImage.src = ''; // Clear any previous image
+    modalPhotoImage.src = photoUrl; // Set the new photo URL
 
-                // Populate Schedule Dropdown
-                const scheduleDropdown = document.getElementById('edit_schedule');
-                scheduleDropdown.value = data.schedule_id;
+    // Show the modal
+    const photoModal = new bootstrap.Modal(document.getElementById('photoModal'));
+    photoModal.show();
+}
 
-                document.getElementById('edit_statutory_benefits').value = data.statutory_benefits;
+function editEmployee(employeeId) {
+    fetch(`/employee/${employeeId}`)
+        .then(response => response.json())
+        .then(data => {
+            // Set form values dynamically
+            document.getElementById('editEmployeeForm').action = `/employee/${employeeId}`;
+            document.getElementById('edit_first_name').value = data.first_name;
+            document.getElementById('edit_last_name').value = data.last_name;
+            document.getElementById('edit_address').value = data.address;
+            document.getElementById('edit_birthdate').value = data.birthdate;
+            document.getElementById('edit_contact_no').value = data.contact_no;
 
-                // Show the modal
-                new bootstrap.Modal(document.getElementById('editEmployeeModal')).show();
-            })
-            .catch(error => console.error('Error:', error));
-    }
+            // Set gender default value
+            const genderDropdown = document.getElementById('edit_gender');
+            [...genderDropdown.options].forEach(option => {
+                if (option.value === data.gender) {
+                    option.selected = true;
+                }
+            });
+
+            // Populate other fields
+            document.getElementById('edit_position_id').value = data.position_id;
+            document.getElementById('edit_schedule').value = data.schedule_id;
+            document.getElementById('edit_statutory_benefits').value = data.statutory_benefits;
+
+            // Show the modal
+            new bootstrap.Modal(document.getElementById('editEmployeeModal')).show();
+        })
+        .catch(error => console.error('Error:', error));
+}
 
     // Fix modal close issue
     document.getElementById('editEmployeeModal').addEventListener('hidden.bs.modal', function () {

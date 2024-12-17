@@ -220,13 +220,10 @@
                 <i class="fas fa-bars"></i>
             </button>
         </div>
-        <div class="username">
-            <i class="fas fa-user-circle"></i>
-            <span>Guest</span>
-        </div>
+        
     </nav>
-
-       <!-- Offcanvas Sidebar -->
+   
+    <!-- Offcanvas Sidebar -->
     <div class="offcanvas offcanvas-start" id="offcanvasMenu">
         <div class="offcanvas-header">
             <h5 class="offcanvas-title">Menu</h5>
@@ -234,24 +231,11 @@
         </div>
         <div class="offcanvas-body">
             <div class="sidebar">
-                <!-- User Info -->
-                <div class="user-info text-center mb-4">
-                    @auth
-                        <img src="{{ asset('path_to_user_icon.png') }}" alt="User Icon" class="rounded-circle" width="70">
-                        <h5 class="mt-2">{{ Auth::user()->username }}</h5>
-                        <span><i class="fas fa-circle text-success"></i> Online</span>
-                    @else
-                        <img src="{{ asset('path_to_guest_icon.png') }}" alt="Guest Icon" class="rounded-circle" width="70">
-                        <h5 class="mt-2">Guest</h5>
-                        <span><i class="fas fa-circle text-secondary"></i> Offline</span>
-                    @endauth
-                </div>
-
                 <div class="sidebar-section">Reports</div>
                 <a href="{{ route('admin.dashboard') }}"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
-
+        
                 <div class="sidebar-section">Manage</div>
-                <a href="{{ route('admin.attendance') }}"><i class="fas fa-calendar-check"></i> Attendance</a>
+                <a href="{{ route('admin.attendanceDash') }}"><i class="fas fa-calendar-check"></i> Attendance</a>
                 <a href="#employeesSubmenu" data-bs-toggle="collapse" class="d-flex align-items-center">
                     <i class="fas fa-users"></i> Employees
                     <i class="fas fa-chevron-right ms-auto"></i>
@@ -259,19 +243,28 @@
                 <div class="collapse" id="employeesSubmenu">
                     <ul class="list-unstyled ps-4">
                         <li><a href="{{ route('admin.addEmployeeList') }}">Employee List</a></li>
-                 
                         <li><a href="{{ route('admin.cashadvance') }}">Cash Advance</a></li>
                         <li><a href="{{ route('admin.schedule') }}">Schedules</a></li>
                     </ul>
                 </div>
-
+        
                 <a href="{{ route('admin.deduction') }}"><i class="fas fa-dollar-sign"></i> Deductions</a>
                 <a href="{{ route('admin.position') }}"><i class="fas fa-briefcase"></i> Positions</a>
-
+        
                 <div class="sidebar-section">Printables</div>
                 <a href="{{ route('admin.payroll') }}"><i class="fas fa-print"></i> Payroll</a>
+        
+                <!-- Logout Section -->
+                <div class="sidebar-section">Account</div>
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+                    <button type="submit" class="btn btn-link text-danger text-decoration-none d-flex align-items-center">
+                        <i class="fas fa-sign-out-alt"></i> <span class="ms-2">Log Out</span>
+                    </button>
+                </form>
             </div>
         </div>
+  
     </div>
 
     <!-- Main Content -->
@@ -328,5 +321,51 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Enable Pusher Logging for Debugging
+        Pusher.logToConsole = true;
+    
+        // Initialize Pusher
+        const pusher = new Pusher('{{ config("broadcasting.connections.pusher.key") }}', {
+            cluster: '{{ config("broadcasting.connections.pusher.options.cluster") }}',
+            encrypted: true,
+        });
+    
+        // Subscribe to the Attendance Channel
+        const channel = pusher.subscribe('attendance');
+    
+        // Listen for AttendanceUpdated Event
+        channel.bind('App\\Events\\AttendanceUpdated', function(data) {
+            console.log('Real-time data:', data);
+    
+            // Update Table in Real-Time
+            const tableBody = document.querySelector('table tbody');
+    
+            const row = `
+                <tr id="row-${data.id}">
+                    <td>${data.employee_id}</td>
+                    <td>${data.name}</td>
+                    <td>${data.check_in_time}</td>
+                    <td>${data.check_out_time}</td>
+                    <td>
+                        <button class="btn btn-success btn-sm me-1">
+                            <i class="fas fa-edit"></i> Edit
+                        </button>
+                        <button class="btn btn-danger btn-sm">
+                            <i class="fas fa-trash-alt"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+            `;
+    
+            // If the row exists, replace it; otherwise, append it
+            const existingRow = document.querySelector(`#row-${data.id}`);
+            if (existingRow) {
+                existingRow.outerHTML = row;
+            } else {
+                tableBody.insertAdjacentHTML('beforeend', row);
+            }
+        });
+    </script>
 </body>
 </html>

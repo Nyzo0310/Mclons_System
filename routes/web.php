@@ -28,9 +28,13 @@ Route::post('/AddDeduction', [Display::class, 'AddDeduction']);
 Route::put('/deduction/{id}', [Display::class, 'updateDeduction'])->name('deduction.update');
 
 Route::get('/admin/holiday', [Display::class, 'Display6'])->name('admin.holiday');
-Route::post('/admin/holiday/add', [Display::class, 'addHoliday'])->name('admin.addHoliday');
+Route::post('/holiday', [Display::class, 'addHoliday'])->name('admin.addHoliday');
 Route::put('/holiday/{holiday_id}', [Display::class, 'updateHoliday'])->name('holiday.update');
 Route::delete('/holiday/{holiday_id}', [Display::class, 'deleteHoliday'])->name('holiday.delete');
+
+Route::get('/payroll/calculate/{employee_id}', [Display::class, 'fetchPayrollData']);
+Route::get('/payroll/display8', [Display::class, 'Display8'])->name('payroll.display8');
+Route::post('/payroll/update/{id}', [Display::class, 'updatePayroll'])->name('payroll.update');
 
 
 
@@ -57,3 +61,4 @@ Route::get('/employee/{id}', [Display::class, 'getEmployee'])->name('employee.ge
 Route::put('/employee/{id}', [Display::class, 'updateEmployee'])->name('employee.update');
 Route::put('/position/{id}', [Display::class, 'updatePosition'])->name('position.update');
 
+Route::post('/logout', [Display::class, 'logout'])->name('logout');
