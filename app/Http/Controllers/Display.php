@@ -182,98 +182,94 @@ class Display extends Controller
         return view('position', compact('position'));
     }
 
-    public function Display3()
-{
-    // Total Employees
-    $totalEmployees = Employee::count();
-
-    // Today's Date
-    $today = now()->toDateString();
-
-    // Fetch today's attendance with schedules
-    $attendancesToday = Attendance::with('employee.schedule')
-        ->whereDate('check_in_time', $today)
-        ->whereNotNull('check_in_time')
-        ->get();
-
-    // On-Time and Late Today
-    $onTimeToday = 0;
-    $lateToday = 0;
-
-    foreach ($attendancesToday as $attendance) {
-        $schedule = optional($attendance->employee->schedule);
-
-        if ($schedule) {
-            $scheduledCheckIn = Carbon::parse($schedule->check_in_time); // Scheduled check-in
-            $actualCheckIn = Carbon::parse($attendance->check_in_time); // Actual attendance time
-
-            // Check if on time or late
-            if ($actualCheckIn->lte($scheduledCheckIn)) {
-                $onTimeToday++;
-            } else {
-                $lateToday++;
-            }
-        }
-    }
-
-    // Calculate On-Time Percentage
-    $totalAttendanceToday = $onTimeToday + $lateToday;
-    $onTimePercentage = $totalAttendanceToday > 0
-        ? ($onTimeToday / $totalAttendanceToday) * 100
-        : 0;
-
-    // Monthly Attendance Report
-    $attendanceCountsCurrentMonth = Attendance::with('employee.schedule')
-        ->whereMonth('check_in_time', now()->month)
-        ->whereNotNull('check_in_time')
-        ->get()
-        ->groupBy(function ($attendance) {
-            return date('j', strtotime($attendance->check_in_time)); // Group by day of the month
-        })
-        ->map(function ($dayAttendances) {
-            $ontime = 0;
-            $late = 0;
-
-            foreach ($dayAttendances as $attendance) {
-                $schedule = optional($attendance->employee->schedule);
-
-                if ($schedule) {
-                    $scheduledCheckIn = Carbon::parse($schedule->check_in_time);
-                    $actualCheckIn = Carbon::parse($attendance->check_in_time);
-
-                    if ($actualCheckIn->lte($scheduledCheckIn)) {
-                        $ontime++;
-                    } else {
-                        $late++;
-                    }
+    public function Display3(Request $request)
+    {
+        // Total Employees
+        $totalEmployees = Employee::count();
+    
+        // Today's Date
+        $today = now()->toDateString();
+    
+        // Handle selected month from the request
+        $selectedMonth = $request->input('month', now()->month); // Defaults to current month if no month is selected
+    
+        // Fetch today's attendance with schedules
+        $attendancesToday = Attendance::with('employee.schedule')
+            ->whereDate('check_in_time', $today)
+            ->whereNotNull('check_in_time')
+            ->get();
+    
+        // On-Time and Late Today
+        $onTimeToday = 0;
+        $lateToday = 0;
+    
+        foreach ($attendancesToday as $attendance) {
+            $schedule = optional($attendance->employee->schedule);
+    
+            if ($schedule) {
+                $scheduledCheckIn = Carbon::parse($schedule->check_in_time); // Scheduled check-in
+                $actualCheckIn = Carbon::parse($attendance->check_in_time); // Actual attendance time
+    
+                // Check if on time or late
+                if ($actualCheckIn->lte($scheduledCheckIn)) {
+                    $onTimeToday++;
+                } else {
+                    $lateToday++;
                 }
             }
-
+        }
+    
+        // Monthly Attendance Report based on selected month
+        $attendanceCountsSelectedMonth = Attendance::with('employee.schedule')
+            ->whereMonth('check_in_time', $selectedMonth)
+            ->whereNotNull('check_in_time')
+            ->get()
+            ->groupBy(function ($attendance) {
+                return date('j', strtotime($attendance->check_in_time)); // Group by day of the month
+            })
+            ->map(function ($dayAttendances) {
+                $ontime = 0;
+                $late = 0;
+    
+                foreach ($dayAttendances as $attendance) {
+                    $schedule = optional($attendance->employee->schedule);
+    
+                    if ($schedule) {
+                        $scheduledCheckIn = Carbon::parse($schedule->check_in_time);
+                        $actualCheckIn = Carbon::parse($attendance->check_in_time);
+    
+                        if ($actualCheckIn->lte($scheduledCheckIn)) {
+                            $ontime++;
+                        } else {
+                            $late++;
+                        }
+                    }
+                }
+    
+                return [
+                    'ontime' => $ontime,
+                    'late' => $late,
+                ];
+            })
+            ->sortKeys();
+    
+        // Prepare chart data
+        $attendanceCountsSelectedMonth = $attendanceCountsSelectedMonth->map(function ($data, $day) {
             return [
-                'ontime' => $ontime,
-                'late' => $late,
+                'day' => $day,
+                'ontime' => $data['ontime'],
+                'late' => $data['late'],
             ];
-        })
-        ->sortKeys();
-
-    // Prepare chart data
-    $attendanceCountsCurrentMonth = $attendanceCountsCurrentMonth->map(function ($data, $day) {
-        return [
-            'day' => $day,
-            'ontime' => $data['ontime'],
-            'late' => $data['late'],
-        ];
-    })->values();
-
-    return view('admindash', compact(
-        'totalEmployees',
-        'onTimePercentage',
-        'onTimeToday',
-        'lateToday',
-        'attendanceCountsCurrentMonth'
-    ));
-}
-
+        })->values();
+    
+        return view('admindash', compact(
+            'totalEmployees',
+            'onTimeToday',
+            'lateToday',
+            'attendanceCountsSelectedMonth',
+            'selectedMonth'
+        ));
+    }
     public function Display10()
     {
         // Fetching cash advances with employee details using Eloquent relationship
@@ -353,114 +349,114 @@ public function destroy($id)
     }
     
     
-    public function Display1()
-{
-    $startDate = Carbon::now()->startOfMonth(); // Start of the current month
-    $endDate = Carbon::now()->endOfMonth();     // End of the current month
-    $employees = Employee::all();
-
-    $attendanceData = [];
-    $attendances = Attendance::with('employee') // Include employee relationship
-        ->whereBetween('check_in_time', [$startDate, $endDate])
-        ->get()
-        ->map(function ($attendance) {
-            // Ensure check-out time exists
-            if ($attendance->check_out_time) {
-                $hoursWorked = Carbon::parse($attendance->check_in_time)
-                    ->diffInHours(Carbon::parse($attendance->check_out_time));
-
-                // Calculate overtime (anything beyond 8 hours)
-                $attendance->overtime_hours = $hoursWorked > 8 ? $hoursWorked - 8 : 0;
-            } else {
-                $attendance->overtime_hours = 0; // No check-out, no overtime
-            }
-
-            return $attendance;
-        });
-
-    foreach ($employees as $employee) {
-        // Step 1: Get all working days (e.g., Mon-Fri)
-        $workingDays = [];
-        for ($date = $startDate->copy(); $date <= $endDate; $date->addDay()) {
-            if (!$date->isWeekend()) {
-                $workingDays[] = $date->toDateString();
-            }
-        }
-
-        // Step 2: Fetch attendance records for the current month
-        $presentDays = Attendance::where('employee_id', $employee->id)
+    public function Display1($month = null)
+    {
+        $month = $month ?: Carbon::now()->month; // Default to current month if not provided
+        $startDate = Carbon::now()->month($month)->startOfMonth(); // Start of the selected month
+        $endDate = Carbon::now()->startOfDay()->addDay(); // Current date plus one day
+        $employees = Employee::all();
+    
+        $attendanceData = [];
+        $attendances = Attendance::with('employee')
             ->whereBetween('check_in_time', [$startDate, $endDate])
-            ->pluck('check_in_time')
-            ->map(fn($date) => Carbon::parse($date)->toDateString())
-            ->toArray();
-
-        // Step 3: Compare working days with attendance records to find absent days
-        $absentDays = array_diff($workingDays, $presentDays);
-
-        $attendanceData[] = [
-            'employee' => $employee,
-            'total_present' => count($presentDays),
-            'total_absent' => count($absentDays),
-            'absent_days' => $absentDays,
-        ];
+            ->get()
+            ->map(function ($attendance) {
+                if ($attendance->check_out_time) {
+                    $hoursWorked = Carbon::parse($attendance->check_in_time)
+                        ->diffInHours(Carbon::parse($attendance->check_out_time));
+                    $attendance->overtime_hours = $hoursWorked > 8 ? $hoursWorked - 8 : 0;
+                } else {
+                    $attendance->overtime_hours = 0;
+                }
+                return $attendance;
+            });
+    
+        foreach ($employees as $employee) {
+            $workingDays = [];
+            $saturdaysCount = 0;
+    
+            for ($date = $startDate->copy(); $date <= $endDate; $date->addDay()) {
+                if (!$date->isSunday()) { // Include Saturdays but exclude Sundays
+                    $workingDays[] = $date->toDateString();
+                }
+                if ($date->isSaturday()) {
+                    $saturdaysCount++;
+                }
+            }
+    
+            $presentDays = Attendance::where('employee_id', $employee->id)
+                ->whereBetween('check_in_time', [$startDate, $endDate])
+                ->pluck('check_in_time')
+                ->map(fn($date) => Carbon::parse($date)->toDateString())
+                ->toArray();
+    
+            $absentDays = array_diff($workingDays, $presentDays);
+    
+            $attendanceData[] = [
+                'employee' => $employee,
+                'total_present' => count($presentDays),
+                'total_absent' => count($absentDays),
+                'absent_days' => $absentDays,
+                'saturdays_count' => $saturdaysCount,
+            ];
+        }
+    
+        return view('attendanceDash', compact('attendances', 'attendanceData', 'month'));
     }
 
-    // Pass both $attendances and $attendanceData
-    return view('attendanceDash', compact('attendances', 'attendanceData'));
-}
-
-    public function generateReport($id)
+    public function generateReport($id, $month = null)
     {
         try {
-            $startDate = Carbon::now()->startOfMonth();
-            $endDate = Carbon::now()->endOfMonth();
+            $month = $month ?: Carbon::now()->month; // Default to current month if not provided
+            $startDate = Carbon::now()->month($month)->startOfMonth();
+            $endDate = Carbon::now()->startOfDay()->addDay(); // End date is the current day plus one
     
-            // Step 1: Fetch all attendance records for this employee
             $attendanceRecords = Attendance::where('employee_id', $id)
                 ->whereBetween('check_in_time', [$startDate, $endDate])
                 ->get();
     
-            // Step 2: Calculate Present and Absent Days
             $presentDays = $attendanceRecords->pluck('check_in_time')
                 ->map(fn($date) => Carbon::parse($date)->toDateString())
                 ->toArray();
     
             $workingDays = [];
+            $saturdaysCount = 0;
+    
             for ($date = $startDate->copy(); $date <= $endDate; $date->addDay()) {
-                if (!$date->isWeekend()) {
+                if (!$date->isSunday()) {
                     $workingDays[] = $date->toDateString();
+                }
+                if ($date->isSaturday()) {
+                    $saturdaysCount++;
                 }
             }
     
             $absentDays = array_diff($workingDays, $presentDays);
     
-            // Step 3: Calculate Total Late Check-ins
             $expectedStartTime = "08:00:00";
             $lateCheckIns = $attendanceRecords->filter(function ($attendance) use ($expectedStartTime) {
                 $checkIn = Carbon::parse($attendance->check_in_time);
                 return $checkIn->format('H:i:s') > $expectedStartTime;
             })->count();
     
-            // Step 4: Calculate Total Overtime
             $totalOvertime = 0;
             foreach ($attendanceRecords as $attendance) {
                 if ($attendance->check_out_time) {
                     $hoursWorked = Carbon::parse($attendance->check_in_time)
                         ->diffInHours(Carbon::parse($attendance->check_out_time));
-    
                     if ($hoursWorked > 8) {
-                        $totalOvertime += $hoursWorked - 8; // Calculate overtime hours
+                        $totalOvertime += $hoursWorked - 8;
                     }
                 }
             }
     
-            // Step 5: Return JSON Response
             return response()->json([
                 'total_present' => count($presentDays),
                 'total_absent' => count($absentDays),
                 'absent_days' => array_values($absentDays),
                 'total_late' => $lateCheckIns,
-                'total_overtime' => $totalOvertime // Include total overtime
+                'total_overtime' => $totalOvertime,
+                'saturdays_count' => $saturdaysCount,
             ]);
     
         } catch (\Exception $e) {
@@ -469,7 +465,6 @@ public function destroy($id)
     }
     
     
-
     public function Display()
     {
         return view('Attendance');
@@ -793,18 +788,22 @@ public function add(Request $request)
             $scheduleEnd->addDay();
         }
     
-        // Early check-in restriction
+        // Restrict attendance earlier than 1 hour before schedule
         $earliestAllowedCheckIn = $scheduleStart->copy()->subHour(); // 1 hour before schedule start
+    
+        // Restrict attendance past the schedule end time
+        if ($checkInTime->lt($earliestAllowedCheckIn)) {
+            return back()->with('error', 'Attendance denied: You cannot check in more than 1 hour before your scheduled time.');
+        }
+    
+        if ($checkInTime->gt($scheduleEnd)) {
+            return back()->with('error', 'Attendance denied: You cannot check in after your scheduled check-out time.');
+        }
     
         if ($attendanceStatus === 'timein') {
             // Debugging logs
             Log::info("Check-in Time: {$checkInTime}");
-            Log::info("Schedule Start: {$scheduleStart}, Earliest Allowed: {$earliestAllowedCheckIn}");
-    
-            // Check for early check-in
-            if ($checkInTime->lt($earliestAllowedCheckIn)) {
-                return back()->with('error', 'Check-in denied: Too early! You can only check in 1 hour before your scheduled time.');
-            }
+            Log::info("Schedule Start: {$scheduleStart}, Earliest Allowed: {$earliestAllowedCheckIn}, Schedule End: {$scheduleEnd}");
     
             // Check if employee is late (10-minute threshold)
             $lateThreshold = $scheduleStart->copy()->addMinutes(10);
@@ -855,7 +854,6 @@ public function add(Request $request)
     
         return back()->with('error', 'Invalid attendance status.');
     }
-    
     
 
     public function updateEmployee(Request $request, $id)
@@ -1032,17 +1030,17 @@ public function add(Request $request)
         foreach ($attendances as $attendance) {
             $checkIn = Carbon::parse($attendance->check_in_time);
             $checkOut = Carbon::parse($attendance->check_out_time);
-    
+        
             if ($checkOut->lessThan($checkIn)) {
                 $checkOut->addDay(); // Handle overnight shifts
             }
-    
+        
             $hoursWorked = $checkIn->diffInHours($checkOut);
-    
+        
             // Check for holiday
             $holiday = Holiday::whereDate('holiday_date', $checkIn->toDateString())->first();
             $isSunday = $checkIn->isSunday();
-    
+        
             // Holiday bonus logic
             $holidayBonus = 0;
             if ($holiday) {
@@ -1054,51 +1052,58 @@ public function add(Request $request)
             } elseif ($isSunday) {
                 $holidayBonus = $regularRate * 0.3; // Sunday bonus
             }
-    
+        
             // Regular hours calculation (max 8 hours)
             $regularHours = min(8, $hoursWorked);
             $totalRegularPay += $regularHours * $regularRate;
             $totalHolidayPay += $regularHours * $holidayBonus;
-    
+        
             // Overtime calculation (beyond 8 hours)
             $overtimeHours = max(0, $hoursWorked - 8);
-            $totalOvertimePay += $overtimeHours * $overtimeRate;
-    
+        
             // 2-4 AM Pay Logic
             $start2AM = $checkIn->copy()->setTime(2, 0, 0);
             $end4AM = $checkIn->copy()->setTime(4, 0, 0);
-    
+        
             if ($checkIn->hour >= 18 || $checkIn->hour < 4) {
                 $start2AM = $checkIn->copy()->addDay()->setTime(2, 0, 0);
                 $end4AM = $checkIn->copy()->addDay()->setTime(4, 0, 0);
             }
-    
+        
             // Calculate overlap between 2-4 AM and attendance time
+            $overlapHours = 0;
             if ($checkOut->greaterThan($start2AM) && $checkIn->lessThan($end4AM)) {
                 $overlapStart = $checkIn->greaterThan($start2AM) ? $checkIn : $start2AM;
                 $overlapEnd = $checkOut->lessThan($end4AM) ? $checkOut : $end4AM;
-    
+        
                 if ($overlapStart->lessThan($overlapEnd)) {
                     $overlapHours = $overlapStart->diffInMinutes($overlapEnd) / 60;
                     $total2to4AMPay += $overlapHours * $extra2to4AMRate;
                 }
             }
+        
+            // Adjust overtime hours if 2-4 AM overlap exists
+            if ($overlapHours > 0) {
+                $overtimeHours = max(0, $overtimeHours - $overlapHours);
+            }
+        
+            $totalOvertimePay += $overtimeHours * $overtimeRate;
         }
-    
-        // Gross salary calculation
+        
+        // Remaining logic...
         $grossSalary = $totalRegularPay + $totalOvertimePay + $totalHolidayPay + $total2to4AMPay;
-    
+        
         // Fetch deductions
         $deductions = $employee->deduction ? $employee->deduction->amount : 0;
-    
+        
         // Fetch and sum cash advances
         $cashAdvanceTotal = CashAdvance::where('employee_id', $employee_id)
             ->where('status', 'approved')
             ->sum('amount');
-    
+        
         // Net salary calculation
         $netSalary = $grossSalary - $deductions - $cashAdvanceTotal;
-    
+        
         // Return the detailed breakdown
         return [
             'regular_pay' => round($totalRegularPay, 2),
@@ -1111,5 +1116,6 @@ public function add(Request $request)
             'start_date' => $startDate->toDateString(),
             'end_date' => $endDate->toDateString(),
         ];
+        
     }
 }    

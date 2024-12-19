@@ -210,9 +210,46 @@
             transform: rotate(90deg);
             transition: transform 0.3s ease;
         }
-        canvas {
-    max-height: 95%;
+      /* Monthly Attendance Section */
+.mt-3 {
+    position: relative; /* Allows for positioning of the dropdown inside */
+    padding-top: 20px; /* Adds space at the top for the dropdown */
 }
+
+/* Form Group Styling */
+.form-group {
+    position: absolute; /* Fixes the position of the dropdown within the container */
+    top: 100; /* Aligns the dropdown to the top of the section */
+    left: 0; /* Aligns it to the left */
+    z-index: 10; /* Ensures it stays above other content */
+    width: auto; /* Prevents the dropdown from stretching too wide */
+    padding-right: 20px; /* Adds space on the right */
+}
+
+/* Dropdown Styling */
+.form-select {
+    width: 200px; /* Sets the width of the dropdown */
+    padding: 8px;
+    font-size: 14px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    outline: none;
+    background-color: #ffffff;
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.form-select:focus {
+    border-color: #007bff;
+}
+
+/* Adjust Canvas for Chart */
+canvas {
+    width: 100% !important; /* Ensures the chart uses full available width */
+    height: 90% !important; /* Adjusts the height of the chart */
+    margin-top: 50px; /* Adds space to avoid overlap with the dropdown */
+}
+
+
     </style>
 </head>
 <body>
@@ -327,15 +364,27 @@
             </div>
         </div>
     </div>
-
+ 
     <!-- Monthly Attendance Report -->
-    <div class="mt-3" style="height: calc(100vh - 200px);">
-        <h4>Monthly Attendance Report</h4>
-        <div style="width: 100%; height: 100%;">
-            <canvas id="attendanceChart"></canvas>
+<div class="mt-3" style="height: calc(100vh - 200px);">
+    <h4>Monthly Attendance Report</h4>
+    <form action="{{ route('admin.dashboard') }}" method="GET">
+        <div class="form-group">
+            <label for="month">Select Month</label>
+            <select name="month" id="month" class="form-select" onchange="this.form.submit()">
+                @foreach(range(1, 12) as $month)
+                    <option value="{{ $month }}" {{ $selectedMonth == $month ? 'selected' : '' }}>
+                        {{ \Carbon\Carbon::create()->month($month)->format('F') }}
+                    </option>
+                @endforeach
+            </select>
         </div>
+    </form>
+    <div style="width: 100%; height: 100%;">
+        <canvas id="attendanceChart"></canvas>
     </div>
 </div>
+
 
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
@@ -344,17 +393,18 @@
 
 
 <script>
-    const attendanceDataCurrentMonth = @json($attendanceCountsCurrentMonth ?? []);
+    const attendanceDataSelectedMonth = @json($attendanceCountsSelectedMonth ?? []);
+    const selectedMonth = {{ $selectedMonth ?? now()->month }};
 
     // Prepare labels and data for the chart
     const currentDate = new Date();
-    const totalDays = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0).getDate();
-    const labelsCurrentMonth = Array.from({ length: totalDays }, (_, i) => i + 1);
+    const totalDays = new Date(currentDate.getFullYear(), selectedMonth, 0).getDate();
+    const labelsSelectedMonth = Array.from({ length: totalDays }, (_, i) => i + 1);
     const ontimeDataMonth = new Array(totalDays).fill(0);
     const lateDataMonth = new Array(totalDays).fill(0);
 
-    if (attendanceDataCurrentMonth.length > 0) {
-        attendanceDataCurrentMonth.forEach(data => {
+    if (attendanceDataSelectedMonth.length > 0) {
+        attendanceDataSelectedMonth.forEach(data => {
             const dayIndex = parseInt(data.day) - 1; // Adjust for 0-based index
             if (dayIndex >= 0 && dayIndex < totalDays) {
                 ontimeDataMonth[dayIndex] = data.ontime || 0;
@@ -364,44 +414,42 @@
     }
 
     const ctx = document.getElementById('attendanceChart').getContext('2d');
-new Chart(ctx, {
-    type: 'bar',
-    data: {
-        labels: labelsCurrentMonth,
-        datasets: [
-            {
-                label: 'On Time',
-                data: ontimeDataMonth,
-                backgroundColor: 'rgba(40, 167, 69, 0.8)',
-            },
-            {
-                label: 'Late',
-                data: lateDataMonth,
-                backgroundColor: 'rgba(255, 193, 7, 0.8)',
-            },
-        ],
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        scales: {
-            y: {
-                beginAtZero: true,
-                max: 50, // Set maximum value of the Y-axis
-                ticks: {
-                    stepSize: 5, // Adjust step size for better readability
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labelsSelectedMonth,
+            datasets: [
+                {
+                    label: 'On Time',
+                    data: ontimeDataMonth,
+                    backgroundColor: 'rgba(40, 167, 69, 0.8)',
                 },
-            },
-            x: {
-                ticks: {
-                    autoSkip: false, // Ensures all labels are displayed
+                {
+                    label: 'Late',
+                    data: lateDataMonth,
+                    backgroundColor: 'rgba(255, 193, 7, 0.8)',
+                },
+            ],
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 50, // Set maximum value of the Y-axis
+                    ticks: {
+                        stepSize: 5, // Adjust step size for better readability
+                    },
+                },
+                x: {
+                    ticks: {
+                        autoSkip: false, // Ensures all labels are displayed
+                    },
                 },
             },
         },
-    },
-});
+    });
 </script>
-
-
 </body>
 </html>

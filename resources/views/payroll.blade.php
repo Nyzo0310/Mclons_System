@@ -240,7 +240,7 @@
                 <th>Regular Pay</th>
                 <th>Overtime Pay</th>
                 <th>Holiday Pay</th>
-                <th>Night 2-4 AM Pay</th>
+                <th>Night Additional Pay</th>
                 <th>Gross Salary</th>
                 <th>Cash Advance</th>
                 <th>Deductions</th>
