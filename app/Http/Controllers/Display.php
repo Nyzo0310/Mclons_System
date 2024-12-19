@@ -44,32 +44,20 @@ class Display extends Controller
         $currentDate = Carbon::now();
     
         // Determine payroll period (1st-15th or 16th-end of month)
-        $startDate = $currentDate->day <= 15 
-                     ? $currentDate->copy()->startOfMonth()
-                     : $currentDate->copy()->startOfMonth()->addDays(15);
+        $startDate = $currentDate->day <= 15
+            ? $currentDate->copy()->startOfMonth()
+            : $currentDate->copy()->startOfMonth()->addDays(15);
     
-        $endDate = $currentDate->day <= 15 
-                   ? $startDate->copy()->addDays(14)
-                   : $startDate->copy()->endOfMonth();
+        $endDate = $currentDate->day <= 15
+            ? $startDate->copy()->addDays(14)
+            : $startDate->copy()->endOfMonth();
     
+        // Current Payroll
         $employees = Employee::with(['position', 'deduction'])
             ->get()
             ->map(function ($employee) use ($startDate, $endDate) {
-                // Fetch the detailed payroll breakdown for the period
-                $payroll = $this->calculatePayroll($employee->employee_id, $startDate, $endDate) ?? [
-                    'regular_pay' => 0,
-                    'overtime_pay' => 0,
-                    'holiday_pay' => 0,
-                    'extra_2to4_pay' => 0,
-                    'gross_salary' => 0,
-                    'cash_advance' => 0,
-                    'net_salary' => 0,
-                ];
-    
-                // Deduction details
-                $deductionAmount = $employee->deduction->amount ?? 0;
-                $deductionName = $employee->deduction->name ?? 'None';
-                $totalDeductions = $deductionAmount + ($payroll['cash_advance'] ?? 0);
+                // Automatically save payroll data and fetch the breakdown
+                $payroll = $this->calculatePayroll($employee->employee_id, true, $startDate, $endDate);
     
                 return [
                     'employee_id'       => $employee->employee_id,
@@ -81,18 +69,57 @@ class Display extends Controller
                     'extra_2to4_pay'    => round($payroll['extra_2to4_pay'], 2),
                     'gross_salary'      => round($payroll['gross_salary'], 2),
                     'cash_advance'      => round($payroll['cash_advance'], 2),
-                    'deduction_name'    => $deductionName,
-                    'deductions'        => round($deductionAmount, 2),
-                    'total_deductions'  => round($totalDeductions, 2),
+                    'deduction_name'    => $employee->deduction->name ?? 'None',
+                    'deductions'        => round($payroll['deductions'], 2),
+                    'total_deductions'  => round($payroll['deductions'] + $payroll['cash_advance'], 2),
                     'net_salary'        => round($payroll['net_salary'], 2),
                     'start_date'        => $startDate->toDateString(),
                     'end_date'          => $endDate->toDateString(),
                 ];
             });
     
-        return view('payroll', ['employees' => $employees]);
-    }
+        // Payroll History
+        $payrollHistory = Payroll::with('employee')
+            ->orderBy('start_date', 'desc')
+            ->get()
+            ->map(function ($payroll) {
+                return [
+                    'employee_id'       => $payroll->employee_id,
+                    'name'              => $payroll->employee->first_name . ' ' . $payroll->employee->last_name,
+                    'position_name'     => $payroll->employee->position->position_name ?? 'N/A',
+                    'regular_pay'       => round($payroll->regular_pay, 2),
+                    'overtime_pay'      => round($payroll->overtime_pay, 2),
+                    'holiday_pay'       => round($payroll->holiday_pay, 2),
+                    'extra_2to4_pay'    => round($payroll->extra_2to4_pay, 2),
+                    'gross_salary'      => round($payroll->gross_salary, 2),
+                    'cash_advance'      => round($payroll->cash_advance, 2),
+                    'deductions'        => round($payroll->deductions, 2),
+                    'net_salary'        => round($payroll->net_salary, 2),
+                    'start_date'        => $payroll->start_date,
+                    'end_date'          => $payroll->end_date,
+                ];
+            });
     
+        return view('payroll', ['employees' => $employees, 'payrollHistory' => $payrollHistory]);
+    }
+    public function viewEmployeeHistory($employee_id)
+{
+    $employee = Employee::findOrFail($employee_id);
+
+    // Fetch payroll history for the specific employee
+    $payrollHistory = Payroll::where('employee_id', $employee_id)
+        ->orderBy('start_date', 'desc')
+        ->get();
+
+    return response()->json([
+        'employee' => [
+            'name' => $employee->first_name . ' ' . $employee->last_name,
+            'position' => $employee->position->position_name ?? 'N/A',
+        ],
+        'payrolls' => $payrollHistory,
+    ]);
+}
+
     
     
     public function Display7()
@@ -971,151 +998,169 @@ public function add(Request $request)
     
         return response()->json(['success' => true, 'message' => 'Position updated successfully!']);
     }
-    
+    public function saveAll(Request $request)
+{
+    // Get all employees
+    $employees = Employee::all();
 
-    public function assignPosition(Request $request)
-    {
-        $validatedData = $request->validate([
-            'employee_id' => 'required|exists:employees,employee_id',
-            'position' => 'required|exists:positions,position_id',
-        ]);
-
-        $employee = Employee::find($validatedData['employee_id']);
-
-        if ($employee->position_id != $validatedData['position']) {
-            $employee->position_id = $validatedData['position'];
-            $employee->save();
-
-            return redirect()->back()->with('success', 'Position updated successfully!');
-        } else {
-            return redirect()->back()->with('info', 'No changes were made, as the selected position is the same.');
-        }
+    // Loop through each employee and save payroll
+    foreach ($employees as $employee) {
+        $this->calculatePayroll($employee->employee_id, true);
     }
 
-    public function calculatePayroll($employee_id)
-    {
-        $employee = Employee::with('position')->find($employee_id);
-        if (!$employee || !$employee->position) {
-            return null;
+    // Redirect back with a success message
+    return redirect()->back()->with('success', 'Payroll data saved successfully!');
+}
+
+    
+public function calculatePayroll($employee_id, $saveToDatabase = false, $startDate = null, $endDate = null)
+{
+    $employee = Employee::with('position')->find($employee_id);
+    if (!$employee || !$employee->position) {
+        return null;
+    }
+
+    // Rates
+    $regularRate = $employee->position->rate_per_hour;
+    $overtimeRate = $regularRate * 1.25;
+    $extra2to4AMRate = ($regularRate * 0.1) + $overtimeRate;
+
+    // Determine current 15-day period if no dates are passed
+    $today = Carbon::now();
+    $startDate = $startDate ?? ($today->day <= 15 
+                                 ? $today->copy()->startOfMonth() 
+                                 : $today->copy()->startOfMonth()->addDays(15));
+    $endDate = $endDate ?? ($today->day <= 15 
+                             ? $startDate->copy()->addDays(14) 
+                             : $startDate->copy()->endOfMonth());
+
+    // Attendance data
+    $attendances = Attendance::where('employee_id', $employee_id)
+        ->whereBetween('check_in_time', [$startDate, $endDate])
+        ->whereNotNull('check_in_time')
+        ->whereNotNull('check_out_time')
+        ->get();
+
+    // Totals
+    $totalRegularPay = 0;
+    $totalOvertimePay = 0;
+    $totalHolidayPay = 0;
+    $total2to4AMPay = 0;
+
+    foreach ($attendances as $attendance) {
+        $checkIn = Carbon::parse($attendance->check_in_time);
+        $checkOut = Carbon::parse($attendance->check_out_time);
+
+        if ($checkOut->lessThan($checkIn)) {
+            $checkOut->addDay(); // Handle overnight shifts
         }
-    
-        // Rates
-        $regularRate = $employee->position->rate_per_hour;
-        $overtimeRate = $regularRate * 1.25;
-        $extra2to4AMRate = ($regularRate * 0.1) + $overtimeRate;
-    
-        // Identify current 15-day period
-        $today = Carbon::now();
-        $startDate = $today->day <= 15 
-                     ? $today->copy()->startOfMonth() // Start of the month
-                     : $today->copy()->startOfMonth()->addDays(15); // Start from the 16th
-    
-        $endDate = $today->day <= 15 
-                   ? $startDate->copy()->addDays(14) // 1st to 15th
-                   : $startDate->copy()->endOfMonth(); // 16th to end of the month
-    
-        // Attendance data
-        $attendances = Attendance::where('employee_id', $employee_id)
-            ->whereBetween('check_in_time', [$startDate, $endDate])
-            ->whereNotNull('check_in_time')
-            ->whereNotNull('check_out_time')
-            ->get();
-    
-        // Totals
-        $totalRegularPay = 0;
-        $totalOvertimePay = 0;
-        $totalHolidayPay = 0;
-        $total2to4AMPay = 0;
-    
-        foreach ($attendances as $attendance) {
-            $checkIn = Carbon::parse($attendance->check_in_time);
-            $checkOut = Carbon::parse($attendance->check_out_time);
-        
-            if ($checkOut->lessThan($checkIn)) {
-                $checkOut->addDay(); // Handle overnight shifts
+
+        $hoursWorked = $checkIn->diffInHours($checkOut);
+
+        // Check for holiday
+        $holiday = Holiday::whereDate('holiday_date', $checkIn->toDateString())->first();
+        $isSunday = $checkIn->isSunday();
+
+        // Holiday bonus logic
+        $holidayBonus = 0;
+        if ($holiday) {
+            if ($holiday->type === 'regular') {
+                $holidayBonus = $regularRate; // Double pay for regular holiday
+            } elseif ($holiday->type === 'special') {
+                $holidayBonus = $regularRate * 0.3; // 30% extra for special holidays
             }
-        
-            $hoursWorked = $checkIn->diffInHours($checkOut);
-        
-            // Check for holiday
-            $holiday = Holiday::whereDate('holiday_date', $checkIn->toDateString())->first();
-            $isSunday = $checkIn->isSunday();
-        
-            // Holiday bonus logic
-            $holidayBonus = 0;
-            if ($holiday) {
-                if ($holiday->type === 'regular') {
-                    $holidayBonus = $regularRate; // Double pay for regular holiday
-                } elseif ($holiday->type === 'special') {
-                    $holidayBonus = $regularRate * 0.3; // 30% extra for special holidays
-                }
-            } elseif ($isSunday) {
-                $holidayBonus = $regularRate * 0.3; // Sunday bonus
-            }
-        
-            // Regular hours calculation (max 8 hours)
-            $regularHours = min(8, $hoursWorked);
-            $totalRegularPay += $regularHours * $regularRate;
-            $totalHolidayPay += $regularHours * $holidayBonus;
-        
-            // Overtime calculation (beyond 8 hours)
-            $overtimeHours = max(0, $hoursWorked - 8);
-        
-            // 2-4 AM Pay Logic
-            $start2AM = $checkIn->copy()->setTime(2, 0, 0);
-            $end4AM = $checkIn->copy()->setTime(4, 0, 0);
-        
-            if ($checkIn->hour >= 18 || $checkIn->hour < 4) {
-                $start2AM = $checkIn->copy()->addDay()->setTime(2, 0, 0);
-                $end4AM = $checkIn->copy()->addDay()->setTime(4, 0, 0);
-            }
-        
-            // Calculate overlap between 2-4 AM and attendance time
-            $overlapHours = 0;
-            if ($checkOut->greaterThan($start2AM) && $checkIn->lessThan($end4AM)) {
-                $overlapStart = $checkIn->greaterThan($start2AM) ? $checkIn : $start2AM;
-                $overlapEnd = $checkOut->lessThan($end4AM) ? $checkOut : $end4AM;
-        
-                if ($overlapStart->lessThan($overlapEnd)) {
-                    $overlapHours = $overlapStart->diffInMinutes($overlapEnd) / 60;
-                    $total2to4AMPay += $overlapHours * $extra2to4AMRate;
-                }
-            }
-        
-            // Adjust overtime hours if 2-4 AM overlap exists
-            if ($overlapHours > 0) {
-                $overtimeHours = max(0, $overtimeHours - $overlapHours);
-            }
-        
-            $totalOvertimePay += $overtimeHours * $overtimeRate;
+        } elseif ($isSunday) {
+            $holidayBonus = $regularRate * 0.3; // Sunday bonus
         }
-        
-        // Remaining logic...
-        $grossSalary = $totalRegularPay + $totalOvertimePay + $totalHolidayPay + $total2to4AMPay;
-        
-        // Fetch deductions
+
+        // Regular hours calculation (max 8 hours)
+        $regularHours = min(8, $hoursWorked);
+        $totalRegularPay += $regularHours * $regularRate;
+        $totalHolidayPay += $regularHours * $holidayBonus;
+
+        // Overtime calculation (beyond 8 hours)
+        $overtimeHours = max(0, $hoursWorked - 8);
+
+        // 2-4 AM Pay Logic
+        $start2AM = $checkIn->copy()->setTime(2, 0, 0);
+        $end4AM = $checkIn->copy()->setTime(4, 0, 0);
+
+        if ($checkIn->hour >= 18 || $checkIn->hour < 4) {
+            $start2AM = $checkIn->copy()->addDay()->setTime(2, 0, 0);
+            $end4AM = $checkIn->copy()->addDay()->setTime(4, 0, 0);
+        }
+
+        // Calculate overlap between 2-4 AM and attendance time
+        $overlapHours = 0;
+        if ($checkOut->greaterThan($start2AM) && $checkIn->lessThan($end4AM)) {
+            $overlapStart = $checkIn->greaterThan($start2AM) ? $checkIn : $start2AM;
+            $overlapEnd = $checkOut->lessThan($end4AM) ? $checkOut : $end4AM;
+
+            if ($overlapStart->lessThan($overlapEnd)) {
+                $overlapHours = $overlapStart->diffInMinutes($overlapEnd) / 60;
+                $total2to4AMPay += $overlapHours * $extra2to4AMRate;
+            }
+        }
+
+        // Adjust overtime hours if 2-4 AM overlap exists
+        if ($overlapHours > 0) {
+            $overtimeHours = max(0, $overtimeHours - $overlapHours);
+        }
+
+        $totalOvertimePay += $overtimeHours * $overtimeRate;
+    }
+
+    // Calculate gross salary
+    $grossSalary = $totalRegularPay + $totalOvertimePay + $totalHolidayPay + $total2to4AMPay;
+
+    // Check if deductions have already been applied this month
+    $currentMonth = $startDate->format('Y-m');
+    $existingPayrollWithDeductions = Payroll::where('employee_id', $employee_id)
+        ->where('start_date', 'LIKE', "$currentMonth%")
+        ->where('deductions', '>', 0)
+        ->exists();
+
+    // Apply deductions only if not already applied
+    $deductions = 0;
+    if (!$existingPayrollWithDeductions) {
         $deductions = $employee->deduction ? $employee->deduction->amount : 0;
-        
-        // Fetch and sum cash advances
-        $cashAdvanceTotal = CashAdvance::where('employee_id', $employee_id)
-            ->where('status', 'approved')
-            ->sum('amount');
-        
-        // Net salary calculation
-        $netSalary = $grossSalary - $deductions - $cashAdvanceTotal;
-        
-        // Return the detailed breakdown
-        return [
-            'regular_pay' => round($totalRegularPay, 2),
-            'overtime_pay' => round($totalOvertimePay, 2),
-            'holiday_pay' => round($totalHolidayPay, 2),
-            'extra_2to4_pay' => round($total2to4AMPay, 2),
-            'gross_salary' => round($grossSalary, 2),
-            'cash_advance' => round($cashAdvanceTotal, 2),
-            'net_salary' => round($netSalary, 2),
-            'start_date' => $startDate->toDateString(),
-            'end_date' => $endDate->toDateString(),
-        ];
-        
     }
-}    
+
+    // Fetch and sum cash advances only for this payroll period
+    $cashAdvanceTotal = CashAdvance::where('employee_id', $employee_id)
+        ->whereBetween('request_date', [$startDate, $endDate])
+        ->where('status', 'approved')
+        ->sum('amount');
+
+    // Net salary calculation
+    $netSalary = $grossSalary - $deductions - $cashAdvanceTotal;
+
+    $payrollData = [
+        'employee_id'   => $employee_id,
+        'start_date'    => $startDate->toDateString(),
+        'end_date'      => $endDate->toDateString(),
+        'regular_pay'   => round($totalRegularPay, 2),
+        'overtime_pay'  => round($totalOvertimePay, 2),
+        'holiday_pay'   => round($totalHolidayPay, 2),
+        'extra_2to4_pay' => round($total2to4AMPay, 2),
+        'gross_salary'  => round($grossSalary, 2),
+        'cash_advance'  => round($cashAdvanceTotal, 2),
+        'deductions'    => round($deductions, 2),
+        'net_salary'    => round($netSalary, 2),
+    ];
+
+    // Save to database if requested
+    if ($saveToDatabase) {
+        Payroll::updateOrCreate(
+            [
+                'employee_id' => $employee_id,
+                'start_date'  => $startDate->toDateString(),
+                'end_date'    => $endDate->toDateString(),
+            ],
+            $payrollData
+        );
+    }
+
+    return $payrollData;
+}
+}

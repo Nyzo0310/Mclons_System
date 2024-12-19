@@ -1,4 +1,5 @@
 <?php
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,18 +13,23 @@ class Payroll extends Model
 
     protected $fillable = [
         'employee_id',
+        'start_date',
+        'end_date',
+        'regular_pay',
+        'overtime_pay',
+        'holiday_pay',
+        'extra_2to4_pay',
         'gross_salary',
-        'deduction_id',
+        'cash_advance',
+        'deductions',
         'net_salary',
     ];
 
+    /**
+     * Relationship with Employee model.
+     */
     public function employee()
     {
         return $this->belongsTo(Employee::class, 'employee_id');
-    }
-
-    public function deduction()
-    {
-        return $this->belongsTo(Deduction::class, 'deduction_id');
     }
 }

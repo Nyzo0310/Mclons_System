@@ -164,6 +164,30 @@
             padding: 3px;
             box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
         }
+        <style>
+    .modal-xl {
+        max-width: 90%; /* Set to 90% of the screen width */
+    }
+
+    .modal-body {
+        padding: 20px;
+        overflow-x: hidden; /* Prevent horizontal overflow */
+    }
+
+    .table-responsive {
+        margin-bottom: 0; /* Prevent extra spacing */
+    }
+
+    table {
+        font-size: 0.95rem; /* Slightly reduce font size for better fit */
+    }
+
+    .table th, .table td {
+        white-space: nowrap; /* Prevent content wrapping */
+        text-align: center; /* Center-align all table data */
+    }
+</style>
+
     </style>
 </head>
 <body>
@@ -226,68 +250,105 @@
 <div class="main-content">
     <div class="page-title">Payroll</div>
     <div class="controls">
-        
+        <form action="{{ route('payroll.saveAll') }}" method="POST" style="text-align: right; margin-bottom: 15px;">
+            @csrf
+            <button type="submit" class="btn btn-success">Save Payroll</button>
+        </form>
     </div>
+    @if(session('success'))
+    <div class="alert alert-success">
+        {{ session('success') }}
+    </div>
+@endif
 
-<!-- Table -->
-<div class="table-wrapper">
-    <table class="table table-bordered text-center">
-        <thead>
-            <tr>
-                <th>Employee Name</th>
-                <th>Employee ID</th>
-                <th>Position</th>
-                <th>Regular Pay</th>
-                <th>Overtime Pay</th>
-                <th>Holiday Pay</th>
-                <th>Night Additional Pay</th>
-                <th>Gross Salary</th>
-                <th>Cash Advance</th>
-                <th>Deductions</th>
-                <th>Total Deductions</th>
-                <th>Net Pay</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($employees as $employee)
-            <tr>
-                <td>{{ $employee['name'] }}</td>
-                <td>{{ $employee['employee_id'] }}</td>
-                <td>{{ $employee['position_name'] }}</td>
-                <td>{{ number_format($employee['regular_pay'], 2) }}</td>
-                <td>{{ number_format($employee['overtime_pay'], 2) }}</td>
-                <td>{{ number_format($employee['holiday_pay'], 2) }}</td>
-                <td>{{ number_format($employee['extra_2to4_pay'], 2) }}</td>
-                <td>{{ number_format($employee['gross_salary'], 2) }}</td>
-                <td>{{ number_format($employee['cash_advance'], 2) }}</td>
-                <td>{{ $employee['deduction_name'] }} ({{ number_format($employee['deductions'], 2) }})</td>
-                <td>{{ number_format($employee['total_deductions'], 2) }}</td>
-                <td>{{ number_format($employee['net_salary'], 2) }}</td>
-                <td>
-                    <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#payslipModal" 
-                        data-name="{{ $employee['name'] }}" 
-                        data-id="{{ $employee['employee_id'] }}"
-                        data-position="{{ $employee['position_name'] }}"
-                        data-regular="{{ number_format($employee['regular_pay'], 2) }}"
-                        data-overtime="{{ number_format($employee['overtime_pay'], 2) }}"
-                        data-holiday="{{ number_format($employee['holiday_pay'], 2) }}"
-                        data-nightot="{{ number_format($employee['extra_2to4_pay'], 2) }}"
-                        data-gross="{{ number_format($employee['gross_salary'], 2) }}"
-                        data-cashadvance="{{ number_format($employee['cash_advance'], 2) }}"
-                        data-deduction-name="{{ $employee['deduction_name'] }}"
-                        data-deductions="{{ number_format($employee['deductions'], 2) }}"
-                        data-total-deductions="{{ number_format($employee['total_deductions'], 2) }}"
-                        data-netpay="{{ number_format($employee['net_salary'], 2) }}">
-                        View Payslip
-                    </button>
-                </td>
-            </tr>
-            @endforeach
-        </tbody>
-        
-    </table>
+    <!-- Table -->
+    <div class="table-wrapper">
+        <table class="table table-bordered text-center">
+            <thead>
+                <tr>
+                    <th>Employee Name</th>
+                    <th>Employee ID</th>
+                    <th>Position</th>
+                    <th>Regular Pay</th>
+                    <th>Overtime Pay</th>
+                    <th>Holiday Pay</th>
+                    <th>Night Additional Pay</th>
+                    <th>Gross Salary</th>
+                    <th>Cash Advance</th>
+                    <th>Deductions</th>
+                    <th>Total Deductions</th>
+                    <th>Net Pay</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($employees as $employee)
+                <tr>
+                    <td>{{ $employee['name'] }}</td>
+                    <td>{{ $employee['employee_id'] }}</td>
+                    <td>{{ $employee['position_name'] }}</td>
+                    <td>{{ number_format($employee['regular_pay'], 2) }}</td>
+                    <td>{{ number_format($employee['overtime_pay'], 2) }}</td>
+                    <td>{{ number_format($employee['holiday_pay'], 2) }}</td>
+                    <td>{{ number_format($employee['extra_2to4_pay'], 2) }}</td>
+                    <td>{{ number_format($employee['gross_salary'], 2) }}</td>
+                    <td>{{ number_format($employee['cash_advance'], 2) }}</td>
+                    <td>{{ $employee['deduction_name'] }} ({{ number_format($employee['deductions'], 2) }})</td>
+                    <td>{{ number_format($employee['total_deductions'], 2) }}</td>
+                    <td>{{ number_format($employee['net_salary'], 2) }}</td>
+                    <td>
+                        <!-- View Payslip Button -->
+                        <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#payslipModal" 
+                            data-name="{{ $employee['name'] }}" 
+                            data-id="{{ $employee['employee_id'] }}"
+                            data-position="{{ $employee['position_name'] }}"
+                            data-regular="{{ number_format($employee['regular_pay'], 2) }}"
+                            data-overtime="{{ number_format($employee['overtime_pay'], 2) }}"
+                            data-holiday="{{ number_format($employee['holiday_pay'], 2) }}"
+                            data-nightot="{{ number_format($employee['extra_2to4_pay'], 2) }}"
+                            data-gross="{{ number_format($employee['gross_salary'], 2) }}"
+                            data-cashadvance="{{ number_format($employee['cash_advance'], 2) }}"
+                            data-deduction-name="{{ $employee['deduction_name'] }}"
+                            data-deductions="{{ number_format($employee['deductions'], 2) }}"
+                            data-total-deductions="{{ number_format($employee['total_deductions'], 2) }}"
+                            data-netpay="{{ number_format($employee['net_salary'], 2) }}">
+                            View Payslip
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="viewHistory({{ $employee['employee_id'] }})">
+                            History
+                        </button>
+                    </td>
+                </tr>
+                @endforeach
+            </tbody>
+            
+        </table>
+    </div>
 </div>
+<div class="modal fade" id="historyModal" tabindex="-1" aria-labelledby="historyModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl"> <!-- Changed to modal-xl for extra width -->
+        <div class="modal-content">
+            <!-- Modal Header -->
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="historyModalLabel">
+                    <i class="fas fa-history"></i> Employee Payroll History
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <!-- Modal Body -->
+            <div class="modal-body" id="historyModalBody" style="padding: 20px;">
+                <!-- Dynamic content will be injected here -->
+            </div>
+            <!-- Modal Footer -->
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                    <i class="fas fa-times"></i> Close
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Payslip Modal -->
 <div class="modal fade" id="payslipModal" tabindex="-1" aria-labelledby="payslipModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -331,12 +392,62 @@
         </div>
     </div>
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<!-- Chart.js library -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+<script>
+   function viewHistory(employeeId) {
+    fetch(`/payroll/history/${employeeId}`)
+        .then(response => response.json())
+        .then(data => {
+            // Populate the modal with the employee's history
+            const historyModalBody = document.getElementById('historyModalBody');
+            historyModalBody.innerHTML = `
+                <div class="mb-3">
+                    <h5 class="text-primary">Payroll History for <span class="fw-bold">${data.employee.name}</span></h5>
+                    <p class="mb-2"><strong>Position:</strong> ${data.employee.position}</p>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="table-dark">
+                            <tr>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Regular Pay</th>
+                                <th>Overtime Pay</th>
+                                <th>Holiday Pay</th>
+                                <th>Night Pay</th>
+                                <th>Gross Salary</th>
+                                <th>Cash Advance</th>
+                                <th>Deductions</th>
+                                <th>Net Pay</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.payrolls.map(payroll => `
+                                <tr>
+                                    <td>${payroll.start_date}</td>
+                                    <td>${payroll.end_date}</td>
+                                    <td class="text-end">${parseFloat(payroll.regular_pay).toFixed(2)}</td>
+                                    <td class="text-end">${parseFloat(payroll.overtime_pay).toFixed(2)}</td>
+                                    <td class="text-end">${parseFloat(payroll.holiday_pay).toFixed(2)}</td>
+                                    <td class="text-end">${parseFloat(payroll.extra_2to4_pay).toFixed(2)}</td>
+                                    <td class="text-end text-success fw-bold">${parseFloat(payroll.gross_salary).toFixed(2)}</td>
+                                    <td class="text-end text-danger">${parseFloat(payroll.cash_advance).toFixed(2)}</td>
+                                    <td class="text-end text-warning">${parseFloat(payroll.deductions).toFixed(2)}</td>
+                                    <td class="text-end text-primary fw-bold">${parseFloat(payroll.net_salary).toFixed(2)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            // Show the modal
+            const historyModal = new bootstrap.Modal(document.getElementById('historyModal'));
+            historyModal.show();
+        })
+        .catch(error => console.error('Error fetching payroll history:', error));
+}
+</script>
 <!-- JavaScript for Modal -->
 <script>
     document.getElementById('payslipModal').addEventListener('show.bs.modal', function (event) {
