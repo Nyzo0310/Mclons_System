@@ -11,6 +11,10 @@ Route::get('/Attendance',[Display::class,'Display'])->name('admin.attendance');
 Route::get('/AttendanceDash',[Display::class,'Display1'])->name('admin.attendanceDash');
 Route::get('/AttendanceRecords', [Display::class, 'AttendanceRecords'])->name('admin.attendanceRecords');
 Route::get('/admindash',[Display::class,'Display3'])->name('admin.dashboard');
+
+Route::get('/dashboard-data', [Display::class, 'getDashboardData']);
+
+
 Route::get('/position',[Display::class,'Display4'])->name('admin.position');
 Route::get('/payroll',[Display::class,'Display8'])->name('admin.payroll');
 Route::get('/deduction',[Display::class,'Display9'])->name('admin.deduction');

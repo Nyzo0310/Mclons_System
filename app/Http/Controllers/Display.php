@@ -217,8 +217,9 @@ class Display extends Controller
         // Today's Date
         $today = now()->toDateString();
     
-        // Handle selected month from the request
-        $selectedMonth = $request->input('month', now()->month); // Defaults to current month if no month is selected
+        // Handle selected month and year from the request
+        $selectedMonth = $request->input('month', now()->month); // Defaults to current month if not selected
+        $selectedYear = now()->year; // Defaults to current year
     
         // Fetch today's attendance with schedules
         $attendancesToday = Attendance::with('employee.schedule')
@@ -233,11 +234,10 @@ class Display extends Controller
         foreach ($attendancesToday as $attendance) {
             $schedule = optional($attendance->employee->schedule);
     
-            if ($schedule) {
-                $scheduledCheckIn = Carbon::parse($schedule->check_in_time); // Scheduled check-in
-                $actualCheckIn = Carbon::parse($attendance->check_in_time); // Actual attendance time
+            if ($schedule && $attendance->check_in_time) {
+                $scheduledCheckIn = Carbon::parse($schedule->check_in_time)->setTimezone('Asia/Manila');
+                $actualCheckIn = Carbon::parse($attendance->check_in_time)->setTimezone('Asia/Manila');
     
-                // Check if on time or late
                 if ($actualCheckIn->lte($scheduledCheckIn)) {
                     $onTimeToday++;
                 } else {
@@ -246,57 +246,94 @@ class Display extends Controller
             }
         }
     
-        // Monthly Attendance Report based on selected month
-        $attendanceCountsSelectedMonth = Attendance::with('employee.schedule')
+        // Fetch attendance for the selected month
+        $monthlyAttendance = Attendance::with('employee.schedule')
+            ->whereYear('check_in_time', $selectedYear)
             ->whereMonth('check_in_time', $selectedMonth)
             ->whereNotNull('check_in_time')
-            ->get()
-            ->groupBy(function ($attendance) {
-                return date('j', strtotime($attendance->check_in_time)); // Group by day of the month
-            })
-            ->map(function ($dayAttendances) {
-                $ontime = 0;
-                $late = 0;
+            ->get();
     
-                foreach ($dayAttendances as $attendance) {
-                    $schedule = optional($attendance->employee->schedule);
+        // Group Monthly Attendance by Day
+        $daysInMonth = Carbon::createFromDate($selectedYear, $selectedMonth)->daysInMonth;
+        $monthlyAttendanceGrouped = $monthlyAttendance->groupBy(function ($attendance) {
+            return Carbon::parse($attendance->check_in_time)->day; // Group by day
+        });
     
-                    if ($schedule) {
-                        $scheduledCheckIn = Carbon::parse($schedule->check_in_time);
-                        $actualCheckIn = Carbon::parse($attendance->check_in_time);
+        // Initialize counters for on-time and late
+        $onTimeSelectedMonth = 0;
+        $lateSelectedMonth = 0;
     
-                        if ($actualCheckIn->lte($scheduledCheckIn)) {
-                            $ontime++;
-                        } else {
-                            $late++;
-                        }
+        // Calculate daily on-time and late counts
+        $attendanceCountsSelectedMonth = collect(range(1, $daysInMonth))->mapWithKeys(function ($day) use ($monthlyAttendanceGrouped) {
+            $dailyAttendance = $monthlyAttendanceGrouped->get($day, collect());
+    
+            $ontime = 0;
+            $late = 0;
+    
+            foreach ($dailyAttendance as $attendance) {
+                $schedule = optional($attendance->employee->schedule);
+    
+                if ($schedule && $attendance->check_in_time) {
+                    $scheduledCheckIn = Carbon::parse($schedule->check_in_time)->setTimezone('Asia/Manila');
+                    $actualCheckIn = Carbon::parse($attendance->check_in_time)->setTimezone('Asia/Manila');
+    
+                    if ($actualCheckIn->lte($scheduledCheckIn)) {
+                        $ontime++;
+                    } else {
+                        $late++;
                     }
                 }
+            }
     
-                return [
-                    'ontime' => $ontime,
-                    'late' => $late,
-                ];
-            })
-            ->sortKeys();
+            return [$day => ['ontime' => $ontime, 'late' => $late]];
+        })->sortKeys();
     
-        // Prepare chart data
+        // Calculate totals for the selected month
+        $onTimeSelectedMonth = $attendanceCountsSelectedMonth->sum('ontime');
+        $lateSelectedMonth = $attendanceCountsSelectedMonth->sum('late');
+    
+        // Calculate on-time percentage
+        $onTimePercentage = ($onTimeSelectedMonth + $lateSelectedMonth) > 0
+            ? ($onTimeSelectedMonth / ($onTimeSelectedMonth + $lateSelectedMonth)) * 100
+            : 0;
+    
+            // Check if the selected month has any attendance data
+    if ($monthlyAttendance->isEmpty()) {
+        // Set KPI values to 0 if there is no attendance data
+        $onTimeToday = 0;
+        $lateToday = 0;
+        $onTimePercentage = 0;
+        $attendanceCountsSelectedMonth = collect(range(1, $daysInMonth))->mapWithKeys(function ($day) {
+            return [$day => ['ontime' => 0, 'late' => 0]];
+        });
+    } else {
+    // Existing logic to calculate KPIs if attendance exists
+    // (This part of the code remains as is)
+}
+
+    
+        // Prepare chart data for Blade view
         $attendanceCountsSelectedMonth = $attendanceCountsSelectedMonth->map(function ($data, $day) {
             return [
                 'day' => $day,
-                'ontime' => $data['ontime'],
-                'late' => $data['late'],
+                'ontime' => $data['ontime'] ?? 0,
+                'late' => $data['late'] ?? 0,
             ];
         })->values();
     
+        // Pass the data to the view
         return view('admindash', compact(
             'totalEmployees',
             'onTimeToday',
             'lateToday',
             'attendanceCountsSelectedMonth',
-            'selectedMonth'
+            'selectedMonth',
+            'onTimePercentage'
         ));
     }
+    
+  
+    
     public function Display10()
     {
         // Fetching cash advances with employee details using Eloquent relationship
@@ -798,13 +835,14 @@ public function add(Request $request)
             return back()->with('error', 'Employee not found!');
         }
     
-        if (!$employee->schedule) {
+        $schedule = $employee->schedule;
+        if (!$schedule) {
             return back()->with('error', 'No schedule assigned for this employee!');
         }
     
         // Schedule details
-        $rawCheckInTime = $employee->schedule->check_in_time; // Scheduled start
-        $rawCheckOutTime = $employee->schedule->check_out_time; // Scheduled end
+        $rawCheckInTime = $schedule->check_in_time; // Scheduled start
+        $rawCheckOutTime = $schedule->check_out_time; // Scheduled end
     
         // Determine schedule start and end times
         $scheduleStart = Carbon::parse($rawCheckInTime)->setDate($checkInTime->year, $checkInTime->month, $checkInTime->day);
@@ -845,9 +883,15 @@ public function add(Request $request)
                 return back()->with('error', 'You already checked in for today!');
             }
     
-            // Save check-in with status
+            // If the check-in time is within 10 minutes of the scheduled check-in time, round it
+            if ($checkInTime->diffInMinutes($scheduleStart) <= 10) {
+                $checkInTime = $scheduleStart->copy(); // Set to the scheduled check-in time if within 10 minutes
+            }
+    
+            // Save check-in with status and schedule_id
             Attendance::create([
                 'employee_id' => $employeeId,
+                'schedule_id' => $schedule->schedule_id, // Save the schedule_id
                 'check_in_time' => $checkInTime,
                 'check_out_time' => null,
                 'status' => $status,
@@ -855,6 +899,8 @@ public function add(Request $request)
     
             return back()->with('success', "Time In recorded successfully! Status: {$status}");
         }
+    
+        return back()->with('error', 'Invalid attendance status!');
     
         // Handle check-out
         if ($attendanceStatus === 'timeout') {
@@ -881,7 +927,6 @@ public function add(Request $request)
     
         return back()->with('error', 'Invalid attendance status.');
     }
-    
 
     public function updateEmployee(Request $request, $id)
     {

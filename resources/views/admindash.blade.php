@@ -172,11 +172,11 @@
         }
 
         .card.bg-green {
-            background-color: #28a745;
+            background-color: rgb(214, 214, 81);
         }
 
         .card.bg-yellow {
-            background-color: #ffc107;
+            background-color:rgb(0, 161, 0);
             color: #333;
         }
 
@@ -366,90 +366,106 @@ canvas {
     </div>
  
     <!-- Monthly Attendance Report -->
-<div class="mt-3" style="height: calc(100vh - 200px);">
-    <h4>Monthly Attendance Report</h4>
-    <form action="{{ route('admin.dashboard') }}" method="GET">
-        <div class="form-group">
-            <label for="month">Select Month</label>
-            <select name="month" id="month" class="form-select" onchange="this.form.submit()">
-                @foreach(range(1, 12) as $month)
-                    <option value="{{ $month }}" {{ $selectedMonth == $month ? 'selected' : '' }}>
-                        {{ \Carbon\Carbon::create()->month($month)->format('F') }}
-                    </option>
-                @endforeach
-            </select>
+    <div class="mt-3" style="height: calc(100vh - 200px);">
+        <h4>Monthly Attendance Report</h4>
+        <form action="{{ route('admin.dashboard') }}" method="GET">
+            <div class="form-group">
+                <label for="month">Select Month</label>
+                <select name="month" id="month" class="form-select" onchange="this.form.submit()">
+                    @foreach(range(1, 12) as $month)
+                        <option value="{{ $month }}" {{ $selectedMonth == $month ? 'selected' : '' }}>
+                            {{ \Carbon\Carbon::create()->month($month)->format('F') }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+        </form>
+        <div style="width: 100%; height: 100%;">
+            <canvas id="attendanceChart"></canvas>
         </div>
-    </form>
-    <div style="width: 100%; height: 100%;">
-        <canvas id="attendanceChart"></canvas>
     </div>
 </div>
 
-
-</div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 <!-- Chart.js library -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
-
 <script>
     const attendanceDataSelectedMonth = @json($attendanceCountsSelectedMonth ?? []);
-    const selectedMonth = {{ $selectedMonth ?? now()->month }};
+const selectedMonth = {{ $selectedMonth ?? now()->month }};
+        
+// Prepare labels and data for the chart
+const currentDate = new Date();
+const totalDays = new Date(currentDate.getFullYear(), selectedMonth, 0).getDate();
+const labelsSelectedMonth = Array.from({ length: totalDays }, (_, i) => i + 1);
+const ontimeDataMonth = new Array(totalDays).fill(0);
+const lateDataMonth = new Array(totalDays).fill(0);
 
-    // Prepare labels and data for the chart
-    const currentDate = new Date();
-    const totalDays = new Date(currentDate.getFullYear(), selectedMonth, 0).getDate();
-    const labelsSelectedMonth = Array.from({ length: totalDays }, (_, i) => i + 1);
-    const ontimeDataMonth = new Array(totalDays).fill(0);
-    const lateDataMonth = new Array(totalDays).fill(0);
+if (attendanceDataSelectedMonth.length > 0) {
+    attendanceDataSelectedMonth.forEach(data => {
+        const dayIndex = parseInt(data.day) - 1; // Adjust for 0-based index
+        if (dayIndex >= 0 && dayIndex < totalDays) {
+            ontimeDataMonth[dayIndex] = data.ontime || 0;
+            lateDataMonth[dayIndex] = data.late || 0;
+        }
+    });
+} else {
+    // Handle case where no attendance data exists for the selected month
+    ontimeDataMonth.fill(0);
+    lateDataMonth.fill(0);
+}
 
-    if (attendanceDataSelectedMonth.length > 0) {
-        attendanceDataSelectedMonth.forEach(data => {
-            const dayIndex = parseInt(data.day) - 1; // Adjust for 0-based index
-            if (dayIndex >= 0 && dayIndex < totalDays) {
-                ontimeDataMonth[dayIndex] = data.ontime || 0;
-                lateDataMonth[dayIndex] = data.late || 0;
-            }
-        });
-    }
-
-    const ctx = document.getElementById('attendanceChart').getContext('2d');
-    new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labelsSelectedMonth,
-            datasets: [
-                {
-                    label: 'On Time',
-                    data: ontimeDataMonth,
-                    backgroundColor: 'rgba(40, 167, 69, 0.8)',
+const ctx = document.getElementById('attendanceChart').getContext('2d');
+new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: labelsSelectedMonth,
+        datasets: [
+            {
+                label: 'On Time',
+                data: ontimeDataMonth,
+                backgroundColor: 'rgba(40, 167, 69, 0.8)',
+            },
+            {
+                label: 'Late',
+                data: lateDataMonth,
+                backgroundColor: 'red',
+            },
+        ],
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+            y: {
+                beginAtZero: true,
+                max: 50, // Set maximum value of the Y-axis
+                ticks: {
+                    stepSize: 5, // Adjust step size for better readability
                 },
-                {
-                    label: 'Late',
-                    data: lateDataMonth,
-                    backgroundColor: 'rgba(255, 193, 7, 0.8)',
-                },
-            ],
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            scales: {
-                y: {
-                    beginAtZero: true,
-                    max: 50, // Set maximum value of the Y-axis
-                    ticks: {
-                        stepSize: 5, // Adjust step size for better readability
-                    },
-                },
-                x: {
-                    ticks: {
-                        autoSkip: false, // Ensures all labels are displayed
-                    },
+            },
+            x: {
+                ticks: {
+                    autoSkip: false, // Ensures all labels are displayed
                 },
             },
         },
-    });
+        plugins: {
+            tooltip: {
+                enabled: true,
+                callbacks: {
+                    label: function(context) {
+                        const label = context.dataset.label || '';
+                        const value = context.raw || 0;
+                        return `${label}: ${value}`;
+                    }
+                }
+            }
+        }
+    },
+});
+
 </script>
+
 </body>
 </html>
