@@ -161,7 +161,7 @@
             @csrf
             <div>
                 <label for="employee_id" class="form-label">Employee ID</label>
-                <input type="text" id="employee_id" name="employee_id" placeholder="Enter Employee ID" value="{{ old('employee_id') }}" required>
+                <input type="text" id="employee_id" name="employee_id" placeholder="Enter Employee ID" value="{{ old('employee_id') }}" autocomplete="off" required>
                 @error('employee_id')
                     <div class="text-danger">{{ $message }}</div>
                 @enderror
@@ -205,7 +205,7 @@
                 icon: 'success',
                 title: 'Success!',
                 text: "{{ session('success') }}",
-                timer: 3000,
+                timer: 7000,
                 timerProgressBar: true,
                 showConfirmButton: false,
             });
@@ -217,7 +217,7 @@
                 icon: 'error',
                 title: 'Oops!',
                 text: "{{ session('error') }}",
-                timer: 3000,
+                timer: 7000,
                 timerProgressBar: true,
                 showConfirmButton: false,
             });

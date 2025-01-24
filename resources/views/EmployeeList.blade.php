@@ -136,6 +136,14 @@
             box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
         }
 
+        #searchInput {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+
         .table-wrapper {
             background-color: #ffffff;
             border-radius: 10px;
@@ -169,6 +177,10 @@
 
         .add-employee-button {
             margin-bottom: 20px;
+        }
+        .table tbody td:nth-child(3),
+        .table tbody td:nth-child(4) {
+            font-weight: bold;
         }
     </style>
 </head>
@@ -235,25 +247,36 @@
             <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addEmployeeModal">
                 <i class="fas fa-plus"></i> New
             </button>
-        </div>
-        <div class="table-wrapper">
-            <div class="table-responsive">
-                <table class="table table-striped table-hover table-bordered align-middle">
-                    <thead class="table-primary">
-                        <tr>
-                            <th>Employee ID</th>
-                            <th>Photo</th>
-                            <th>First Name</th>
-                            <th>Last Name</th>
-                            <th>Address</th>
-                            <th>Birthdate</th>
-                            <th>Contact No</th>
-                            <th>Gender</th>
-                            <th>Position</th>
-                            <th>Schedule</th>
-                            <th>Statutory Benefits</th>
-                            <th>Action</th>
-                        </tr>
+            <div class="table-wrapper">
+    <!-- Search Bar -->
+    <div class="d-flex justify-content-end mb-3">
+        <input
+            type="text"
+            id="searchInput"
+            class="form-control"
+            placeholder="Search by Name, ID, or Position"
+            onkeyup="filterTable()"
+            style="width: 300px;"
+        />
+    </div>
+    <!-- Table -->
+    <div class="table-responsive">
+        <table class="table table-striped table-hover table-bordered align-middle">
+            <thead class="table-primary">
+                <tr>
+                    <th>Employee ID</th>
+                    <th>Photo</th>
+                    <th>First Name</th>
+                    <th>Last Name</th>
+                    <th>Address</th>
+                    <th>Birthdate</th>
+                    <th>Contact No</th>
+                    <th>Gender</th>
+                    <th>Position</th>
+                    <th>Schedule</th>
+                    <th>Statutory Benefits</th>
+                    <th>Action</th>
+                </tr>
                     </thead>
                     <tbody>
                         @if(count($employees) === 0)
@@ -490,6 +513,27 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    function filterTable() {
+    const input = document.getElementById("searchInput");
+    const filter = input.value.toLowerCase();
+    const table = document.querySelector(".table tbody");
+    const rows = table.getElementsByTagName("tr");
+
+    for (let i = 0; i < rows.length; i++) {
+        let isVisible = false;
+        const cells = rows[i].getElementsByTagName("td");
+
+        for (let j = 0; j < cells.length - 1; j++) { // Exclude the last column (Action buttons)
+            if (cells[j] && cells[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                isVisible = true;
+                break;
+            }
+        }
+
+        rows[i].style.display = isVisible ? "" : "none";
+    }
+}
+
     
     function showPhotoModal(photoUrl) {
     const modalPhotoImage = document.getElementById('modalPhotoImage');

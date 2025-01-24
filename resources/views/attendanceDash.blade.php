@@ -239,7 +239,15 @@
 .modal-footer {
     justify-content: center;
 }
-
+.table tbody td:nth-child(2) {
+    font-weight: bold;
+}
+#searchAttendanceInput {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
 
     </style>
 </head>
@@ -300,65 +308,77 @@
     </div>
 
 <!-- Main Content -->
-<div class="main-content">
-    <h2>Attendance Records</h2>
-    <!-- Add New Attendance & Manage Holiday Buttons -->
-    <div class="add-schedule-button d-flex justify-content-between mb-3">
-        <a href="{{ route('admin.attendance') }}" class="btn btn-primary">
-            <i class="fas fa-plus" style="margin-right: 8px;"></i> Add New Attendance
-        </a>
-        <a href="{{ route('admin.holiday') }}" class="btn btn-secondary">
-            <i class="fas fa-calendar" style="margin-right: 8px;"></i> Manage Holidays
-        </a>
-    </div>
+ <!-- Main Content -->
+ <div class="main-content">
+        <h2>Attendance Records</h2>
+        <div class="add-schedule-button d-flex justify-content-between mb-3">
+            <a href="{{ route('admin.attendance') }}" class="btn btn-primary">
+                <i class="fas fa-plus" style="margin-right: 8px;"></i> Add New Attendance
+            </a>
+            <a href="{{ route('admin.holiday') }}" class="btn btn-secondary">
+                <i class="fas fa-calendar" style="margin-right: 8px;"></i> Manage Holidays
+            </a>
+        </div>
 
-    <!-- Attendance Table -->
-    <div class="card-wrapper">
-        <div class="table-responsive">
-            <table class="table table-striped table-hover table-bordered align-middle">
-                <thead class="table-primary">
-                    <tr>
-                        <th>Employee ID</th>
-                        <th>Name</th>
-                        <th>Time In</th>
-                        <th>Time Out</th>
-                        <th>Total Hours</th>
-                        <th>Total Overtime</th>
-                        <th>Action</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach ($attendances as $attendance)
+        <!-- Search Bar -->
+        <div class="mb-3 d-flex justify-content-end">
+            <input
+                type="text"
+                id="searchAttendanceInput"
+                class="form-control"
+                placeholder="Search Attendance"
+                style="width: 300px;"
+                onkeyup="filterAttendanceTable()"
+            />
+        </div>
+
+        <!-- Attendance Table -->
+        <div class="card-wrapper">
+            <div class="table-responsive">
+                <table class="table table-striped table-hover table-bordered align-middle">
+                    <thead class="table-primary">
                         <tr>
-                            <td>{{ $attendance->employee_id }}</td>
-                            <td>{{ optional($attendance->employee)->first_name . ' ' . optional($attendance->employee)->last_name }}</td>
-                            <td>{{ $attendance->check_in_time }}</td>
-                            <td>{{ $attendance->check_out_time ?? 'N/A' }}</td>
-                            <td>
-                                @if($attendance->check_out_time)
-                                    {{ gmdate("H:i", strtotime($attendance->check_out_time) - strtotime($attendance->check_in_time)) }}
-                                @else
-                                    N/A
-                                @endif
-                            </td>
-                            <td> {{ number_format($attendance->overtime_hours, 2) }} <!-- Display Overtime --></td>
-                            <td>
-                         <button class="btn btn-info btn-sm view-report-btn" 
-                            data-bs-toggle="modal" 
-                            data-bs-target="#reportModal" 
-                            data-employee-id="{{ $attendance->employee_id }}"
-                            data-employee-name="{{ optional($attendance->employee)->first_name . ' ' . optional($attendance->employee)->last_name }}">
-                            <i class="fas fa-print"></i> View Report
-                        </button>
-
-                            </td>
+                            <th>Employee ID</th>
+                            <th>Name</th>
+                            <th>Time In</th>
+                            <th>Time Out</th>
+                            <th>Total Hours</th>
+                            <th>Total Overtime</th>
+                            <th>Action</th>
                         </tr>
-                    @endforeach
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody id="attendanceTableBody">
+                        @foreach ($attendances as $attendance)
+                            <tr>
+                                <td>{{ $attendance->employee_id }}</td>
+                                <td>{{ optional($attendance->employee)->first_name . ' ' . optional($attendance->employee)->last_name }}</td>
+                                <td>{{ $attendance->check_in_time }}</td>
+                                <td>{{ $attendance->check_out_time ?? 'N/A' }}</td>
+                                <td>
+                                    @if($attendance->check_out_time)
+                                        {{ gmdate("H:i", strtotime($attendance->check_out_time) - strtotime($attendance->check_in_time)) }}
+                                    @else
+                                        N/A
+                                    @endif
+                                </td>
+                                <td>{{ number_format($attendance->overtime_hours, 2) }}</td>
+                                <td>
+                                    <button class="btn btn-info btn-sm view-report-btn" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#reportModal" 
+                                        data-employee-id="{{ $attendance->employee_id }}"
+                                        data-employee-name="{{ optional($attendance->employee)->first_name . ' ' . optional($attendance->employee)->last_name }}">
+                                        <i class="fas fa-print"></i> View Report
+                                    </button>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
-</div>
+    
 <!-- Report Modal -->
 <div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -418,6 +438,26 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 <!-- JavaScript -->
 <script>
+function filterAttendanceTable() {
+        const input = document.getElementById("searchAttendanceInput").value.toLowerCase();
+        const tableBody = document.getElementById("attendanceTableBody");
+        const rows = tableBody.getElementsByTagName("tr");
+
+        Array.from(rows).forEach(row => {
+            const cells = row.getElementsByTagName("td");
+            let matches = false;
+
+            for (let cell of cells) {
+                if (cell && cell.textContent.toLowerCase().includes(input)) {
+                    matches = true;
+                    break;
+                }
+            }
+
+            row.style.display = matches ? "" : "none";
+        });
+    }
+
 document.addEventListener("DOMContentLoaded", () => {
     const modal = new bootstrap.Modal(document.getElementById('reportModal'));
     const viewButtons = document.querySelectorAll('.view-report-btn');

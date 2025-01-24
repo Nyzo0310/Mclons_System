@@ -168,7 +168,7 @@
     var calendarEl = document.getElementById('calendar');
 
     var calendar = new FullCalendar.Calendar(calendarEl, {
-        initialView: 'dayGridMonth', // Show month view only
+        initialView: 'dayGridMonth',
         headerToolbar: {
             left: 'prev,next today',
             center: 'title',
@@ -199,9 +199,8 @@
                 const newType = document.getElementById('edit-type').value;
 
                 if (result.isConfirmed) {
-                    // Update Request
                     fetch(`{{ url('/holiday') }}/${info.event.id}`, {
-                        method: 'PUT', // For updates
+                        method: 'PUT',
                         headers: {
                             'Content-Type': 'application/json',
                             'X-CSRF-TOKEN': '{{ csrf_token() }}'
@@ -215,9 +214,14 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.success) {
-                            info.event.setProp('title', newTitle);
-                            info.event.setStart(newDate);
-                            info.event.setExtendedProp('type', newType);
+                            // Remove the event and re-add it with the new data to reflect changes
+                            info.event.remove();
+                            calendar.addEvent({
+                                id: info.event.id,
+                                title: newTitle,
+                                start: newDate,
+                                type: newType
+                            });
                             Swal.fire('Updated!', 'Holiday updated successfully!', 'success');
                         } else {
                             Swal.fire('Error', 'Failed to update holiday.', 'error');
@@ -228,9 +232,8 @@
                         Swal.fire('Error', 'Failed to update holiday.', 'error');
                     });
                 } else if (result.isDenied) {
-                    // Delete Request
                     fetch(`{{ url('/holiday') }}/${info.event.id}`, {
-                        method: 'DELETE', // For deletions
+                        method: 'DELETE',
                         headers: {
                             'X-CSRF-TOKEN': '{{ csrf_token() }}'
                         }
@@ -252,30 +255,31 @@
             });
         }
     });
-    document.getElementById('submitHoliday').addEventListener('click', function () {
-    const formData = new FormData(document.getElementById('addHolidayForm'));
 
-    fetch(`{{ route('admin.addHoliday') }}`, {
-        method: 'POST',
-        headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-        },
-        body: formData
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            Swal.fire('Success', 'Holiday added successfully!', 'success')
-                .then(() => location.reload()); // Reload the calendar
-        } else {
-            Swal.fire('Error', data.message || 'Failed to add holiday.', 'error');
-        }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        Swal.fire('Error', 'An unexpected error occurred.', 'error');
+    document.getElementById('submitHoliday').addEventListener('click', function () {
+        const formData = new FormData(document.getElementById('addHolidayForm'));
+
+        fetch(`{{ route('admin.addHoliday') }}`, {
+            method: 'POST',
+            headers: {
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire('Success', 'Holiday added successfully!', 'success')
+                    .then(() => location.reload());
+            } else {
+                Swal.fire('Error', data.message || 'Failed to add holiday.', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            Swal.fire('Error', 'An unexpected error occurred.', 'error');
+        });
     });
-});
 
     calendar.render();
 });

@@ -63,16 +63,16 @@ class Display extends Controller
                     'employee_id'       => $employee->employee_id,
                     'name'              => $employee->first_name . ' ' . $employee->last_name,
                     'position_name'     => $employee->position->position_name ?? 'N/A',
-                    'regular_pay'       => round($payroll['regular_pay'], 2),
-                    'overtime_pay'      => round($payroll['overtime_pay'], 2),
-                    'holiday_pay'       => round($payroll['holiday_pay'], 2),
-                    'extra_2to4_pay'    => round($payroll['extra_2to4_pay'], 2),
-                    'gross_salary'      => round($payroll['gross_salary'], 2),
-                    'cash_advance'      => round($payroll['cash_advance'], 2),
+                    'regular_pay'       => round($payroll['regular_pay'] ?? 0, 2),
+                    'overtime_pay'      => round($payroll['overtime_pay'] ?? 0, 2),
+                    'holiday_pay'       => round($payroll['holiday_pay'] ?? 0, 2),
+                    'extra_2to4_pay'    => round($payroll['extra_2to4_pay'] ?? 0, 2),
+                    'gross_salary'      => round($payroll['gross_salary'] ?? 0, 2),
+                    'cash_advance'      => round($payroll['cash_advance'] ?? 0, 2),
                     'deduction_name'    => $employee->deduction->name ?? 'None',
-                    'deductions'        => round($payroll['deductions'], 2),
-                    'total_deductions'  => round($payroll['deductions'] + $payroll['cash_advance'], 2),
-                    'net_salary'        => round($payroll['net_salary'], 2),
+                    'deductions'        => round($payroll['deductions'] ?? 0, 2),
+                    'total_deductions'  => round(($payroll['deductions'] ?? 0) + ($payroll['cash_advance'] ?? 0), 2),
+                    'net_salary'        => round($payroll['net_salary'] ?? 0, 2),
                     'start_date'        => $startDate->toDateString(),
                     'end_date'          => $endDate->toDateString(),
                 ];
@@ -83,10 +83,11 @@ class Display extends Controller
             ->orderBy('start_date', 'desc')
             ->get()
             ->map(function ($payroll) {
+                $employee = $payroll->employee; // Handle null checks for relationships
                 return [
                     'employee_id'       => $payroll->employee_id,
-                    'name'              => $payroll->employee->first_name . ' ' . $payroll->employee->last_name,
-                    'position_name'     => $payroll->employee->position->position_name ?? 'N/A',
+                    'name'              => $employee ? ($employee->first_name . ' ' . $employee->last_name) : 'N/A',
+                    'position_name'     => $employee?->position?->position_name ?? 'N/A',
                     'regular_pay'       => round($payroll->regular_pay, 2),
                     'overtime_pay'      => round($payroll->overtime_pay, 2),
                     'holiday_pay'       => round($payroll->holiday_pay, 2),
@@ -102,6 +103,7 @@ class Display extends Controller
     
         return view('payroll', ['employees' => $employees, 'payrollHistory' => $payrollHistory]);
     }
+    
     public function viewEmployeeHistory($employee_id)
 {
     $employee = Employee::findOrFail($employee_id);
@@ -233,12 +235,14 @@ class Display extends Controller
     
         foreach ($attendancesToday as $attendance) {
             $schedule = optional($attendance->employee->schedule);
-    
-            if ($schedule && $attendance->check_in_time) {
+        
+            if ($schedule && $schedule->check_in_time && $attendance->check_in_time) {
                 $scheduledCheckIn = Carbon::parse($schedule->check_in_time)->setTimezone('Asia/Manila');
+                $gracePeriod = $scheduledCheckIn->addMinutes(10); // Add grace period
+                
                 $actualCheckIn = Carbon::parse($attendance->check_in_time)->setTimezone('Asia/Manila');
-    
-                if ($actualCheckIn->lte($scheduledCheckIn)) {
+        
+                if ($actualCheckIn->lte($gracePeriod)) {
                     $onTimeToday++;
                 } else {
                     $lateToday++;
@@ -835,10 +839,11 @@ public function add(Request $request)
             return back()->with('error', 'Employee not found!');
         }
     
-        $schedule = $employee->schedule;
-        if (!$schedule) {
+        if (!$employee->schedule) {
             return back()->with('error', 'No schedule assigned for this employee!');
         }
+    
+        $schedule = $employee->schedule;
     
         // Schedule details
         $rawCheckInTime = $schedule->check_in_time; // Scheduled start
@@ -883,15 +888,10 @@ public function add(Request $request)
                 return back()->with('error', 'You already checked in for today!');
             }
     
-            // If the check-in time is within 10 minutes of the scheduled check-in time, round it
-            if ($checkInTime->diffInMinutes($scheduleStart) <= 10) {
-                $checkInTime = $scheduleStart->copy(); // Set to the scheduled check-in time if within 10 minutes
-            }
-    
             // Save check-in with status and schedule_id
             Attendance::create([
                 'employee_id' => $employeeId,
-                'schedule_id' => $schedule->schedule_id, // Save the schedule_id
+                'schedule_id' => $schedule->id, // Save the schedule ID
                 'check_in_time' => $checkInTime,
                 'check_out_time' => null,
                 'status' => $status,
@@ -899,8 +899,6 @@ public function add(Request $request)
     
             return back()->with('success', "Time In recorded successfully! Status: {$status}");
         }
-    
-        return back()->with('error', 'Invalid attendance status!');
     
         // Handle check-out
         if ($attendanceStatus === 'timeout') {
@@ -927,6 +925,7 @@ public function add(Request $request)
     
         return back()->with('error', 'Invalid attendance status.');
     }
+    
 
     public function updateEmployee(Request $request, $id)
     {

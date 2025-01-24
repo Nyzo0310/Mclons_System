@@ -15,6 +15,7 @@
             background-color: #f4f7fa;
             margin: 0;
             padding: 0;
+            
         }
 
         .page-title {
@@ -22,9 +23,22 @@
             font-size: 30px;
             font-weight: 600;
             color: #495057;
-            text-align: left; /* Aligns the title to the left */
-            margin-bottom: 20px;
+            margin: 0; /* Remove extra spacing around the title */
         }
+
+        #searchPayrollInput {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .d-flex {
+            display: flex;
+            justify-content: space-between;
+            align-items: center; /* Vertically aligns the title and search input */
+        }
+
 
         .main-content {
         max-width: 95%;
@@ -34,35 +48,6 @@
         border-radius: 8px;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         overflow-x: auto; /* Enables horizontal scroll for large tables */
-    }
-
-    /* Table Styles */
-    .table-wrapper {
-        overflow-x: auto; /* Ensures table scrolls horizontally on small screens */
-        border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-        background-color: #ffffff;
-    }
-
-    .table thead th {
-        background: linear-gradient(90deg, #007bff, #0056b3);
-        color: white;
-        font-weight: bold;
-        text-align: center;
-        white-space: nowrap;
-    }
-
-    .table tbody td {
-        text-align: center;
-        vertical-align: middle;
-        font-size: 0.9rem;
-        padding: 8px;
-        white-space: nowrap; /* Prevents text wrapping */
-    }
-
-    .table th,
-    .table td {
-        border: 1px solid #dee2e6;
     }
 
        /* Navbar Styles */
@@ -164,7 +149,6 @@
             padding: 3px;
             box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
         }
-        <style>
     .modal-xl {
         max-width: 90%; /* Set to 90% of the screen width */
     }
@@ -174,18 +158,110 @@
         overflow-x: hidden; /* Prevent horizontal overflow */
     }
 
-    .table-responsive {
-        margin-bottom: 0; /* Prevent extra spacing */
-    }
+    /* Enhanced Table Styles */
+.table-wrapper {
+    overflow-x: auto;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background-color: #ffffff;
+    padding: 15px;
+}
 
-    table {
-        font-size: 0.95rem; /* Slightly reduce font size for better fit */
-    }
+.table {
+    border-collapse: collapse;
+    border-spacing: 0;
+    width: 100%;
+}
 
-    .table th, .table td {
-        white-space: nowrap; /* Prevent content wrapping */
-        text-align: center; /* Center-align all table data */
-    }
+.table thead th {
+    background: linear-gradient(90deg, #007bff, #0056b3);
+    color: white;
+    font-weight: bold;
+    text-align: center;
+    white-space: nowrap;
+    padding: 12px;
+}
+
+.table tbody td {
+    text-align: center;
+    vertical-align: middle;
+    font-size: 1rem;
+    padding: 12px;
+}
+
+.table tbody tr:nth-child(odd) {
+    background-color: #f9f9f9;
+}
+
+.table tbody tr:hover {
+    background-color: #f1f8ff;
+    transition: background-color 0.3s;
+}
+
+.table th,
+.table td {
+    border: 1px solid #dee2e6;
+}
+
+.table tbody td:first-child {
+    font-weight: bold;
+}
+
+.table tbody td:nth-last-child(2) {
+    font-weight: bold;
+}
+
+/* Button Styling */
+.btn {
+    border-radius: 8px; /* Rounded corners */
+    font-size: 0.85rem; /* Comfortable font size */
+    padding: 8px 12px; /* Balanced padding */
+    margin: 0 4px; /* Spacing between buttons */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+    transition: all 0.3s ease; /* Smooth transition for hover */
+}
+
+/* View Payslip Button */
+.btn-info {
+    background-color: #28a745 !important; /* Green background */
+    border-color: #28a745 !important; /* Green border */
+    color: white !important; /* White text */
+    border-radius: 8px; /* Rounded corners */
+    font-size: 0.85rem;
+    padding: 8px 12px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-right: 8px; /* Space between buttons */
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.btn-info:hover {
+    background-color: #218838 !important; /* Darker green on hover */
+    border-color: #1e7e34 !important;
+    transform: scale(1.05); /* Slightly enlarge on hover */
+}
+
+
+/* History Button */
+.btn-primary {
+    margin-top: 5px;
+    background-color: #007bff; /* Blue color */
+    border-color: #007bff;
+    color: #fff;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+    border-color: #004085;
+    transform: translateY(-2px); /* Slight lift on hover */
+}
+
+/* Uniform Button Size */
+.btn-sm {
+    min-width: 100px; /* Ensures consistent width */
+    text-align: center; /* Centers text */
+}
+
+
+
 </style>
 
     </style>
@@ -248,7 +324,17 @@
     
 <!-- Main Content -->
 <div class="main-content">
-    <div class="page-title">Payroll</div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="page-title">Payroll</h2>
+        <input
+            type="text"
+            id="searchPayrollInput"
+            class="form-control"
+            placeholder="Search Payroll"
+            onkeyup="filterPayrollTable()"
+            style="width: 300px;"
+        />
+    </div>
     <div class="controls">
         <form action="{{ route('payroll.saveAll') }}" method="POST" style="text-align: right; margin-bottom: 15px;">
             @csrf
@@ -256,12 +342,10 @@
         </form>
     </div>
     @if(session('success'))
-    <div class="alert alert-success">
+    <div id="successAlert" class="alert alert-success">
         {{ session('success') }}
     </div>
-@endif
-
-    <!-- Table -->
+    @endif
     <div class="table-wrapper">
         <table class="table table-bordered text-center">
             <thead>
@@ -284,18 +368,19 @@
             <tbody>
                 @foreach($employees as $employee)
                 <tr>
-                    <td>{{ $employee['name'] }}</td>
-                    <td>{{ $employee['employee_id'] }}</td>
-                    <td>{{ $employee['position_name'] }}</td>
-                    <td>{{ number_format($employee['regular_pay'], 2) }}</td>
-                    <td>{{ number_format($employee['overtime_pay'], 2) }}</td>
-                    <td>{{ number_format($employee['holiday_pay'], 2) }}</td>
-                    <td>{{ number_format($employee['extra_2to4_pay'], 2) }}</td>
-                    <td>{{ number_format($employee['gross_salary'], 2) }}</td>
-                    <td>{{ number_format($employee['cash_advance'], 2) }}</td>
-                    <td>{{ $employee['deduction_name'] }} ({{ number_format($employee['deductions'], 2) }})</td>
-                    <td>{{ number_format($employee['total_deductions'], 2) }}</td>
-                    <td>{{ number_format($employee['net_salary'], 2) }}</td>
+                    <td>{{ $employee['name'] ?? 'N/A' }}</td>
+                    <td>{{ $employee['employee_id'] ?? 'N/A' }}</td>
+                    <td>{{ $employee['position_name'] ?? 'N/A' }}</td>
+                    <td>{{ number_format($employee['regular_pay'] ?? 0, 2) }}</td>
+                    <td>{{ number_format($employee['overtime_pay'] ?? 0, 2) }}</td>
+                    <td>{{ number_format($employee['holiday_pay'] ?? 0, 2) }}</td>
+                    <td>{{ number_format($employee['extra_2to4_pay'] ?? 0, 2) }}</td>
+                    <td>{{ number_format($employee['gross_salary'] ?? 0, 2) }}</td>
+                    <td>{{ number_format($employee['cash_advance'] ?? 0, 2) }}</td>
+                    <td>{{ $employee['deduction_name'] ?? 'N/A' }} ({{ number_format($employee['deductions'] ?? 0, 2) }})</td>
+                    <td>{{ number_format($employee['total_deductions'] ?? 0, 2) }}</td>
+                    <td>{{ number_format($employee['net_salary'] ?? 0, 2) }}</td>
+                    
                     <td>
                         <!-- View Payslip Button -->
                         <button class="btn btn-sm btn-info" data-bs-toggle="modal" data-bs-target="#payslipModal" 
@@ -392,9 +477,32 @@
         </div>
     </div>
 </div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
+    function filterPayrollTable() {
+    const input = document.getElementById("searchPayrollInput");
+    const filter = input.value.toLowerCase();
+    const table = document.querySelector(".table tbody");
+    const rows = table.getElementsByTagName("tr");
+
+    for (let i = 0; i < rows.length; i++) {
+        let isVisible = false;
+        const cells = rows[i].getElementsByTagName("td");
+
+        for (let j = 0; j < cells.length - 1; j++) { // Exclude the last column (Action buttons)
+            if (cells[j] && cells[j].textContent.toLowerCase().indexOf(filter) > -1) {
+                isVisible = true;
+                break;
+            }
+        }
+
+        rows[i].style.display = isVisible ? "" : "none";
+    }
+}
+
+
    function viewHistory(employeeId) {
     fetch(`/payroll/history/${employeeId}`)
         .then(response => response.json())
@@ -517,6 +625,19 @@
     }, 500);
 });
 
+ // Wait for the page to load completely
+ document.addEventListener("DOMContentLoaded", function () {
+        const successAlert = document.getElementById("successAlert");
+        if (successAlert) {
+            // Automatically hide the alert after 5 seconds
+            setTimeout(() => {
+                successAlert.style.transition = "opacity 0.5s ease";
+                successAlert.style.opacity = "0"; // Fade out
+                // Remove from the DOM after the fade-out
+                setTimeout(() => successAlert.remove(), 500); // Delay to match fade-out duration
+            }, 3000); // 5000ms = 5 seconds
+        }
+    });
 </script>
 
 
